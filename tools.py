@@ -188,3 +188,4 @@ def cycle(hwnd):
     loop_chapture(hwnd)
     check = loop_get_state(hwnd)
     print(check)
+    return check

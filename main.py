@@ -7,10 +7,12 @@ from PySide6.QtCore import Qt
 from path import *
 from cycle import *
 
+from PySide6.QtWidgets import QMessageBox
+
 # ====== Config ======
 ICON_SIZE = 64
 DETAIL_WIDTH = 400
-EXPANDED_MIN_HEIGHT = 260
+EXPANDED_MIN_HEIGHT = 150
 
 # 24시간(초)
 CHECK_INTERVAL_SEC = 24 * 60 * 60  # 86400
@@ -118,24 +120,31 @@ class PlusButton(QtWidgets.QToolButton):
 class DetailPanel(QtWidgets.QFrame):
     def __init__(self, width: int = DETAIL_WIDTH):
         super().__init__(); self._maxw = width
-        self.setMinimumWidth(1); self.setMaximumWidth(1)  # 시작은 접힘
+        self.setMinimumWidth(1); self.setMaximumWidth(1)
         self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
-        # 경계 이음새 + 내부 패딩
         self.setStyleSheet(
             "background:rgba(28,30,36,235);"
             "border-top-right-radius:12px; border-bottom-right-radius:12px;"
             "border-left:1px solid rgba(255,255,255,26);"
         )
         lay = QtWidgets.QVBoxLayout(self)
-        lay.setContentsMargins(28, 14, 16, 14)  # 왼쪽 패딩 약간 크게
+        lay.setContentsMargins(28, 14, 16, 14)
         lay.setSpacing(8)
-        title = QtWidgets.QLabel("상세 정보 창")
-        title.setStyleSheet("color:#f0f0f3; font-weight:700; font-size:13px;")
-        desc = QtWidgets.QLabel("상세 정보")
-        desc.setStyleSheet("color:#cfd2d8; font-size:12px;")
-        desc.setWordWrap(False); desc.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        desc.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
-        lay.addWidget(title); lay.addWidget(desc); lay.addStretch(1)
+
+        # 상태 라벨 (자동 개행 X → 잘리도록 설정)
+        self.lbl_status = QtWidgets.QLabel("— 스레드 동작 상태 —   스케줄러: 실행 중 (대기 --:--)")
+        self.lbl_status.setStyleSheet(
+            "color:#cfd2d8; font-size:12px; font-family: Consolas, monospace;"
+        )
+        self.lbl_status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.lbl_status.setWordWrap(False)   # ✅ 자동 줄바꿈 해제
+        self.lbl_status.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        self.lbl_status.setTextInteractionFlags(Qt.TextSelectableByMouse)  # 선택 가능(옵션)
+
+        lay.addWidget(self.lbl_status)
+        lay.addStretch(1)
+
+
 
 
 # -------------------- Main HUD --------------------
@@ -145,12 +154,17 @@ class HUD(QtWidgets.QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
-        self._first_show = True  # 반드시 접힌 상태로 보이게
+        self._first_show = True
 
         # state
         self._ok = True
-        self._next_ts = time.time() + CHECK_INTERVAL_SEC   # 시작 시 무조건 지금 + 24h
+        #self._next_ts = time.time() + CHECK_INTERVAL_SEC   # 시작 시 무조건 지금 + 24h
+        self._next_ts = time.time() + 10   # developer mode
         self._ts_lock = threading.RLock()
+
+        self._last_cycle_at: float | None = None
+        self._last_cycle_ok: bool | None = None
+        self._active_workers: int = 0
 
         # left side widgets
         self.icon = IconCircle()
@@ -239,6 +253,11 @@ class HUD(QtWidgets.QWidget):
         self._tick.timeout.connect(self._update_next_label)
         self._tick.start(1000)
 
+        self._status_tick = QtCore.QTimer(self)
+        self._status_tick.timeout.connect(self._update_status_label)
+        self._status_tick.start(1000)
+        self._update_status_label()  # 초기 1회
+
         # 백그라운드 스케줄러 스레드 시작
         self._stop_evt = threading.Event()
         self._sched_th = threading.Thread(target=self._scheduler_loop, name="daily-scheduler", daemon=True)
@@ -263,20 +282,52 @@ class HUD(QtWidgets.QWidget):
     def _run_cycle(self):
         # 사이클 실행은 블로킹이므로 스케줄러 스레드에서 수행
         self._move_to_top_left()
+        result = None
         try:
-            check()
+            hwnd = start()   # cycle.py 안 start()로 hwnd 얻기
+            if hwnd:
+                result = cycle(hwnd)   # True/False 반환
         except Exception as e:
             print(f"[scheduler] cycle error: {e}")
+        finally:
+            if result is not None:
+                # 메인 스레드에서 메시지박스 띄우기 위해 invoke 사용
+                QtCore.QMetaObject.invokeMethod(
+                    self,
+                    "_show_result_message",
+                    Qt.QueuedConnection,
+                    QtCore.Q_ARG(bool, result)
+                )
+
+
 
     # ---------------- UI Events -----------------
     def _manual_check(self):
-        # 수동 점검: 즉시 실행 후 +24h 재설정
         threading.Thread(target=self._manual_worker, daemon=True).start()
 
     def _manual_worker(self):
-        self._run_cycle()
-        with self._ts_lock:
-            self._next_ts = time.time() + CHECK_INTERVAL_SEC
+        self._active_workers += 1
+        self._update_status_label()
+        try:
+            self._run_cycle()
+            with self._ts_lock:
+                self._next_ts = time.time() + CHECK_INTERVAL_SEC
+        finally:
+            self._active_workers -= 1
+            self._update_status_label()
+
+    @QtCore.Slot(bool)
+    def _show_result_message(self, ok: bool):
+        msg = QtWidgets.QMessageBox(self)
+        msg.setWindowTitle("사이클 결과")
+        if ok:
+            msg.setIcon(QtWidgets.QMessageBox.Information)
+            msg.setText("프로그램이 실행 중입니다.")
+        else:
+            msg.setIcon(QtWidgets.QMessageBox.Warning)
+            msg.setText("프로그램이 실행 중이지 않습니다.")
+        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msg.exec()
 
     def _move_to_top_left(self):
         screen = QtGui.QGuiApplication.primaryScreen().availableGeometry()
@@ -295,9 +346,67 @@ class HUD(QtWidgets.QWidget):
 
     # helpers
     def _format_next(self, ts: float) -> str:
-        # 실제 날짜/시간 표시(예: 09월 22일 14시 30분)
         dt = datetime.fromtimestamp(ts)
         return dt.strftime("다음 체크 시간 %m월 %d일 %H시 %M분")
+
+    def _fmt_hms(self, secs: float) -> str:
+        secs = max(0, int(secs))
+        h, r = divmod(secs, 3600)
+        m, s = divmod(r, 60)
+        if h:
+            return f"{h:02d}:{m:02d}:{s:02d}"
+        return f"{m:02d}:{s:02d}"
+
+    def _status_line(self) -> str:
+        # 스케줄러
+        alive = self._sched_th.is_alive() if hasattr(self, "_sched_th") else False
+        with self._ts_lock:
+            remain = max(0.0, self._next_ts - time.time())
+
+        sched = f"스케줄러: {'실행 중' if alive else '중지됨'} (대기 {self._fmt_hms(remain)})"
+
+        # 최근 사이클
+        if self._last_cycle_at is None:
+            last = "최근 사이클: 기록 없음"
+        else:
+            dt = datetime.fromtimestamp(self._last_cycle_at)
+            when = dt.strftime("%m월 %d일 %H:%M:%S")
+            result = "성공" if self._last_cycle_ok else "실패"
+            last = f"최근 사이클: {when} · {result}"
+
+        # 수동 작업
+        workers = f"백그라운드 작업(수동): {self._active_workers}개"
+
+        # UI 타이머
+        ui_tick = "활성" if self._tick.isActive() else "비활성"
+        ui_line = f"UI 타이머: {ui_tick}"
+
+        # 다음 체크 절대시각(상단에도 보이지만 상세에 한번 더)
+        with self._ts_lock:
+            nxt = self._format_next(self._next_ts)
+
+        lines = [
+            "— 스레드 동작 상태 —",
+            sched,
+            workers,
+            ui_line,
+            last,
+            nxt,
+        ]
+        return "\n".join(lines)
+
+    def _update_status_label(self):
+        with self._ts_lock:
+            remain = max(0, int(self._next_ts - time.time()))
+        # 시:분:초
+        h, r = divmod(remain, 3600)
+        m, s = divmod(r, 60)
+        remain_str = f"{h:02d}:{m:02d}:{s:02d}"
+
+        text = f"— 스레드 동작 상태 —   \n스케줄러: 실행 중 (대기 {remain_str})"
+        self.detail.lbl_status.setText(text)
+
+
 
     def _update_next_label(self):
         with self._ts_lock:

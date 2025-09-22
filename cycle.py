@@ -71,7 +71,7 @@ def check():
     if hwnd == None:
         print('Pi window를 찾지 못했습니다.')
         exit(0)
-    cycle(hwnd)
+    return cycle(hwnd)
 
 if __name__ == '__main__':
     check_exe_path()
