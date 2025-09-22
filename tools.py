@@ -9,8 +9,9 @@ import easyocr
 import numpy as np
 from PIL import Image
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from path import * 
 
@@ -18,6 +19,20 @@ EXE_PATH = ''
 def cache_PATH(path):
     global EXE_PATH
     EXE_PATH = path
+
+KST = ZoneInfo("Asia/Seoul")
+
+def now_kst() -> datetime:
+    return datetime.now(tz=KST)
+
+def fmt_kst(dt: datetime | None) -> str:
+    if not dt:
+        return "-"
+    return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M:%S %Z")
+
+def plus_24h(base: datetime | None = None) -> datetime:
+    base = base or now_kst()
+    return base + timedelta(hours=24)
 
 # ---------------
 # Window Utility

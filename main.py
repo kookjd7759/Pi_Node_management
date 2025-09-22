@@ -1,26 +1,22 @@
 from __future__ import annotations
-import os, sys, time
+import os, sys, time, threading
 from datetime import datetime
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
-from path import *  # ICON, OPEN_DIR 등 있으면 사용
+from path import *
+from cycle import *
 
 # ====== Config ======
 ICON_SIZE = 64
-CHECK_INTERVAL_SEC = 60
+DETAIL_WIDTH = 400
+EXPANDED_MIN_HEIGHT = 260
 
-DETAIL_WIDTH = 1000          # 확장 시 오른쪽 패널 목표 폭
-EXPANDED_MIN_HEIGHT = 260    # 확장 최소 높이
+# 24시간(초)
+CHECK_INTERVAL_SEC = 24 * 60 * 60  # 86400
 
 # 폴더 열기 기본 경로
-FOLDER_TO_OPEN = (
-    globals().get("OPEN_DIR")
-    or globals().get("FOLDER_PATH")
-    or globals().get("TARGET_DIR")
-    or globals().get("OPEN_PATH")
-    or os.path.expanduser("~")
-)
+FOLDER_TO_OPEN = BASE_RECORD
 
 # (optional) 전역 사이즈
 EXPANDED_WINDOW_SIZE: QtCore.QSize | None = None
@@ -117,7 +113,7 @@ class PlusButton(QtWidgets.QToolButton):
             QToolButton:hover { background:#3a3d48; } QToolButton:pressed { background:#24262e; }
         """); self._update()
     def set_expanded(self, v: bool): self._expanded = bool(v); self._update()
-    def _update(self): self.setText("+" if not self._expanded else "−"); self.setToolTip("열기" if not self._expanded else "닫기")
+    def _update(self): self.setText("+" if not self._expanded else "−"); self.setToolTip("확장" if not self._expanded else "축소")
 
 class DetailPanel(QtWidgets.QFrame):
     def __init__(self, width: int = DETAIL_WIDTH):
@@ -133,9 +129,9 @@ class DetailPanel(QtWidgets.QFrame):
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(28, 14, 16, 14)  # 왼쪽 패딩 약간 크게
         lay.setSpacing(8)
-        title = QtWidgets.QLabel("상세 디테일")
+        title = QtWidgets.QLabel("상세 정보 창")
         title.setStyleSheet("color:#f0f0f3; font-weight:700; font-size:13px;")
-        desc = QtWidgets.QLabel("여기에 상세 정보를 구성하세요. 로그, 버튼, 링크 등…")
+        desc = QtWidgets.QLabel("상세 정보")
         desc.setStyleSheet("color:#cfd2d8; font-size:12px;")
         desc.setWordWrap(False); desc.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         desc.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
@@ -153,8 +149,8 @@ class HUD(QtWidgets.QWidget):
 
         # state
         self._ok = True
-        self._interval = CHECK_INTERVAL_SEC
-        self._next_ts = time.time() + self._interval
+        self._next_ts = time.time() + CHECK_INTERVAL_SEC   # 시작 시 무조건 지금 + 24h
+        self._ts_lock = threading.RLock()
 
         # left side widgets
         self.icon = IconCircle()
@@ -164,11 +160,11 @@ class HUD(QtWidgets.QWidget):
         self._update_next_label()
 
         # buttons (제목 오른쪽): 체크, 폴더, 플러스
-        self.btn_check = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton), "체크 (로그)")
-        self.btn_folder = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon), "폴더 열기")
+        self.btn_check = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton), "지금 바로 체크")
+        self.btn_folder = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon), "기록 폴더 열기")
         self.btn_plus = PlusButton()
 
-        # ★ 전원 버튼(맨 왼쪽, 은은한 빨강)
+        # 전원 버튼(맨 왼쪽, 은은한 빨강)
         power_style = """
             QToolButton { background:#3a1f1f; color:#f5eaea;
                           border:1px solid #6e2c2c; border-radius:14px; }
@@ -182,7 +178,7 @@ class HUD(QtWidgets.QWidget):
         # wiring
         self.btn_plus.clicked.connect(self._toggle_detail)
         self.btn_folder.clicked.connect(self._open_folder)
-        self.btn_check.clicked.connect(lambda: self._log("✔ 체크 버튼 클릭"))
+        self.btn_check.clicked.connect(self._manual_check)
         self.btn_power.clicked.connect(QtWidgets.QApplication.quit)
 
         # title/status rows
@@ -204,10 +200,10 @@ class HUD(QtWidgets.QWidget):
         left_row = QtWidgets.QHBoxLayout(self.left)
         left_row.setContentsMargins(0,0,0,0); left_row.setSpacing(10)
         left_row.addWidget(self.btn_power)  # 맨 왼쪽
-        
+
         power_wrap = QtWidgets.QWidget()
         pw_lay = QtWidgets.QVBoxLayout(power_wrap)
-        pw_lay.setContentsMargins(0, 4, 0, 0)   # ↑ 여기 숫자(4)를 키우면 더 내려가고, 줄이면 더 올라감 (2~10 추천)
+        pw_lay.setContentsMargins(0, 4, 0, 0)
         pw_lay.setSpacing(0)
         pw_lay.addWidget(self.btn_power, 0, Qt.AlignLeft | Qt.AlignTop)
         pw_lay.addStretch(1)
@@ -230,42 +226,84 @@ class HUD(QtWidgets.QWidget):
 
         # --- 접힘/펼침 사이즈 계산 ---
         self._collapsed_size = self.size()
-
-        # 🔒 초기에는 detail을 전혀 건드리지 않고 '펼침 크기'를 산술로 계산 → 시작부터 넓어지는 문제 방지
         self._expanded_size = QtCore.QSize(
             self._collapsed_size.width() + self.detail._maxw,
             max(self._collapsed_size.height(), EXPANDED_MIN_HEIGHT)
         )
 
-        # 전역 저장
         global EXPANDED_WINDOW_SIZE, COLLAPSED_WINDOW_SIZE
         EXPANDED_WINDOW_SIZE, COLLAPSED_WINDOW_SIZE = self._expanded_size, self._collapsed_size
 
-        # 메뉴/타이머
-        self.menu = QtWidgets.QMenu(); self.menu.addAction("Check now", self._on_check_now); self.menu.addAction("Quit", QtWidgets.QApplication.quit)
-        self._tick = QtCore.QTimer(self); self._tick.timeout.connect(self._on_tick); self._tick.start(1000)
+        # UI 라벨 갱신 타이머(표시만)
+        self._tick = QtCore.QTimer(self)
+        self._tick.timeout.connect(self._update_next_label)
+        self._tick.start(1000)
+
+        # 백그라운드 스케줄러 스레드 시작
+        self._stop_evt = threading.Event()
+        self._sched_th = threading.Thread(target=self._scheduler_loop, name="daily-scheduler", daemon=True)
+        self._sched_th.start()
+
+    # ---------------- Scheduler -----------------
+    def _scheduler_loop(self):
+        while not self._stop_evt.is_set():
+            with self._ts_lock:
+                target = self._next_ts
+            now = time.time()
+            if now >= target:
+                # 예약 시간 도달 → 사이클 수행 후 +24h 재설정
+                self._run_cycle()
+                with self._ts_lock:
+                    self._next_ts = time.time() + CHECK_INTERVAL_SEC
+                continue
+            # 남은 시간만큼 짧게 대기(최대 5초 단위로 깨어나 확인)
+            wait_s = min(max(target - now, 0.0), 5.0)
+            self._stop_evt.wait(wait_s)
+
+    def _run_cycle(self):
+        # 사이클 실행은 블로킹이므로 스케줄러 스레드에서 수행
+        self._move_to_top_left()
+        try:
+            check()
+        except Exception as e:
+            print(f"[scheduler] cycle error: {e}")
+
+    # ---------------- UI Events -----------------
+    def _manual_check(self):
+        # 수동 점검: 즉시 실행 후 +24h 재설정
+        threading.Thread(target=self._manual_worker, daemon=True).start()
+
+    def _manual_worker(self):
+        self._run_cycle()
+        with self._ts_lock:
+            self._next_ts = time.time() + CHECK_INTERVAL_SEC
+
+    def _move_to_top_left(self):
+        screen = QtGui.QGuiApplication.primaryScreen().availableGeometry()
+        self.move(screen.left(), screen.top())
 
     def showEvent(self, e):
         super().showEvent(e)
         if self._first_show:
             self._first_show = False
-            # 접힌 상태로 보이기 + 중앙 배치 (완전히 스냅)
             self.detail.setVisible(False)
             self.detail.setMinimumWidth(1); self.detail.setMaximumWidth(1)
             self.resize(self._collapsed_size)
             self.card.updateGeometry()
             if self.layout(): self.layout().activate()
-            self._move_to_screen_center(self._collapsed_size)
-
-    def _move_to_screen_center(self, size: QtCore.QSize):
-        screen = QtGui.QGuiApplication.primaryScreen().availableGeometry()
-        self.move(screen.center().x() - size.width() // 2,
-                  screen.center().y() - size.height() // 2)
+            self._move_to_top_left()
 
     # helpers
     def _format_next(self, ts: float) -> str:
-        return datetime.fromtimestamp(ts).strftime("다음 체크 시간 %m월 %d일 %H시 %M분")
-    def _update_next_label(self): self.label_next.setText(self._format_next(self._next_ts))
+        # 실제 날짜/시간 표시(예: 09월 22일 14시 30분)
+        dt = datetime.fromtimestamp(ts)
+        return dt.strftime("다음 체크 시간 %m월 %d일 %H시 %M분")
+
+    def _update_next_label(self):
+        with self._ts_lock:
+            ts = self._next_ts
+        self.label_next.setText(self._format_next(ts))
+
     def _log(self, msg: str): print(f"[PiManagerHUD] {msg}")
 
     # open folder (파일 탐색기)
@@ -320,33 +358,19 @@ class HUD(QtWidgets.QWidget):
         self.btn_plus.set_expanded(expanding)
         self._anim = grp; grp.start()
 
-    # logic demo
-    def perform_check(self) -> bool:
-        self._ok = not self._ok; return self._ok
-    def _on_tick(self):
-        if time.time() >= self._next_ts:
-            self.dot.set_ok(self.perform_check()); self._next_ts = time.time() + self._interval; self._update_next_label()
-    def _on_check_now(self):
-        self.dot.set_ok(self.perform_check()); self._next_ts = time.time() + self._interval; self._update_next_label()
-
-    # drag/menu
-    def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self._drag = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
-        elif e.button() == Qt.RightButton:
-            self.menu.popup(e.globalPosition().toPoint())
-    def mouseMoveEvent(self, e):
-        if e.buttons() & Qt.LeftButton and hasattr(self, "_drag"):
-            self.move(e.globalPosition().toPoint() - self._drag)
-    def mouseReleaseEvent(self, e):
-        if hasattr(self, "_drag"): delattr(self, "_drag")
+    def closeEvent(self, e: QtGui.QCloseEvent):
+        # 앱 종료 시 스케줄러 안전 종료
+        if hasattr(self, "_stop_evt"):
+            self._stop_evt.set()
+        return super().closeEvent(e)
 
 
-def main():
+def start():
     app = QtWidgets.QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     w = HUD(); w.show()
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    main()
+    check_exe_path()
+    start()

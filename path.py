@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,3 +14,5 @@ DATA_JSON = _BASE + '/data.json'
 PATH_OCR = _BASE + '/temp/ocr.png'
 
 BASE_RECORD = _BASE + '/record/'
+
+PATH_scheduler_state = _BASE + "/cache/scheduler_state.json"

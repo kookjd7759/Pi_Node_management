@@ -40,8 +40,7 @@ def start():
         time.sleep(3)
     return hwnd
 
-if __name__ == '__main__':
-    #1. check the path
+def check_exe_path():
     print('Pi Network.exe 실행 파일 경로를 확인합니다.')
     with open(DATA_JSON, 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -67,11 +66,13 @@ if __name__ == '__main__':
     
     cache_PATH(data['exe_path'])
 
-    #2. load a handle
+def check():
     hwnd = start()
     if hwnd == None:
         print('Pi window를 찾지 못했습니다.')
         exit(0)
+    cycle(hwnd)
 
-    #3. execute the cycle
-    #cycle(hwnd)
+if __name__ == '__main__':
+    check_exe_path()
+    check()
