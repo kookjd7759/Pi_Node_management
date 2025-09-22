@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from path import *
 from cycle import *
 
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 # ====== Config ======
 ICON_SIZE = 64
@@ -158,13 +158,14 @@ class HUD(QtWidgets.QWidget):
 
         # state
         self._ok = True
-        #self._next_ts = time.time() + CHECK_INTERVAL_SEC   # 시작 시 무조건 지금 + 24h
-        self._next_ts = time.time() + 10   # developer mode
+        self._next_ts = time.time() + CHECK_INTERVAL_SEC   # 시작 시 무조건 지금 + 24h
+        #self._next_ts = time.time() + 5   # developer mode
         self._ts_lock = threading.RLock()
 
         self._last_cycle_at: float | None = None
         self._last_cycle_ok: bool | None = None
         self._active_workers: int = 0
+        self._last_run_msg: str = ""
 
         # left side widgets
         self.icon = IconCircle()
@@ -263,6 +264,39 @@ class HUD(QtWidgets.QWidget):
         self._sched_th = threading.Thread(target=self._scheduler_loop, name="daily-scheduler", daemon=True)
         self._sched_th.start()
 
+        # ===== 드래그 상태 & 이벤트 필터 등록 =====
+        self._dragging = False
+        self._drag_offset = QtCore.QPoint()
+
+        # 전체 영역에서 끌 수 있도록 큰 컨테이너들에 필터 설치
+        self.installEventFilter(self)
+        self.card.installEventFilter(self)
+        self.left.installEventFilter(self)
+        self.detail.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        # 좌클릭 눌렀을 때: 드래그 시작
+        if event.type() == QtCore.QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            self._dragging = True
+            # 현재 커서의 전역 좌표 - 창의 좌상단 오프셋 저장
+            # (PySide6: globalPosition() -> QPointF)
+            gp = event.globalPosition().toPoint()
+            self._drag_offset = gp - self.frameGeometry().topLeft()
+            return True  # 이벤트 소진(기본 처리 막음)
+
+        # 마우스 이동 중: 드래그이면 창 이동
+        if event.type() == QtCore.QEvent.MouseMove and self._dragging:
+            gp = event.globalPosition().toPoint()
+            self.move(gp - self._drag_offset)
+            return True
+
+        # 버튼 떼면: 드래그 종료
+        if event.type() == QtCore.QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            self._dragging = False
+            return True
+
+        return super().eventFilter(obj, event)
+
     # ---------------- Scheduler -----------------
     def _scheduler_loop(self):
         while not self._stop_evt.is_set():
@@ -280,26 +314,26 @@ class HUD(QtWidgets.QWidget):
             self._stop_evt.wait(wait_s)
 
     def _run_cycle(self):
-        # 사이클 실행은 블로킹이므로 스케줄러 스레드에서 수행
         self._move_to_top_left()
-        result = None
+        isRunning = None
+        ok = False
         try:
-            hwnd = start()   # cycle.py 안 start()로 hwnd 얻기
-            if hwnd:
-                result = cycle(hwnd)   # True/False 반환
+            isRunning = check()
+            ok = True
         except Exception as e:
             print(f"[scheduler] cycle error: {e}")
         finally:
-            if result is not None:
-                # 메인 스레드에서 메시지박스 띄우기 위해 invoke 사용
-                QtCore.QMetaObject.invokeMethod(
-                    self,
-                    "_show_result_message",
-                    Qt.QueuedConnection,
-                    QtCore.Q_ARG(bool, result)
-                )
+            self._last_cycle_ok = ok
+            self._last_cycle_at = time.time()
 
+            if isRunning is True:
+                self._last_run_msg = "프로그램이 정상 동작 중입니다."
+            elif isRunning is False:
+                self._last_run_msg = "프로그램이 정상 동작 중이지 않습니다."
 
+            QtCore.QMetaObject.invokeMethod(
+                self, "_update_status_label", Qt.QueuedConnection
+            )
 
     # ---------------- UI Events -----------------
     def _manual_check(self):
@@ -316,18 +350,6 @@ class HUD(QtWidgets.QWidget):
             self._active_workers -= 1
             self._update_status_label()
 
-    @QtCore.Slot(bool)
-    def _show_result_message(self, ok: bool):
-        msg = QtWidgets.QMessageBox(self)
-        msg.setWindowTitle("사이클 결과")
-        if ok:
-            msg.setIcon(QtWidgets.QMessageBox.Information)
-            msg.setText("프로그램이 실행 중입니다.")
-        else:
-            msg.setIcon(QtWidgets.QMessageBox.Warning)
-            msg.setText("프로그램이 실행 중이지 않습니다.")
-        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msg.exec()
 
     def _move_to_top_left(self):
         screen = QtGui.QGuiApplication.primaryScreen().availableGeometry()
@@ -398,13 +420,20 @@ class HUD(QtWidgets.QWidget):
     def _update_status_label(self):
         with self._ts_lock:
             remain = max(0, int(self._next_ts - time.time()))
-        # 시:분:초
         h, r = divmod(remain, 3600)
         m, s = divmod(r, 60)
         remain_str = f"{h:02d}:{m:02d}:{s:02d}"
 
-        text = f"— 스레드 동작 상태 —   \n스케줄러: 실행 중 (대기 {remain_str})"
+        # 기존 두 줄 + 결과 문구
+        text = (
+            "— 스레드 동작 상태 —   \n"
+            f"스케줄러: 실행 중 (대기 {remain_str})"
+        )
+        if self._last_run_msg:
+            text += f"\n{self._last_run_msg}"
+
         self.detail.lbl_status.setText(text)
+
 
 
 

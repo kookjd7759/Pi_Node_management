@@ -180,12 +180,10 @@ def loop_get_state(hwnd):
     click_mouse_to(BTN_PI_NODE)
     line = get_OCR()
     isRunning = check_state(line)
-    print('프로그램이 정상 작동 중 입니다.' if isRunning else '프로그램이 정상 작동 중이지 않습니다.')
     minimize_window(hwnd)
     return isRunning
 
 def cycle(hwnd):
     loop_chapture(hwnd)
     check = loop_get_state(hwnd)
-    print(check)
     return check
