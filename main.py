@@ -7,8 +7,6 @@ from PySide6.QtCore import Qt
 from path import *
 from cycle import *
 
-from PySide6.QtWidgets import QApplication, QMessageBox
-
 # ====== Config ======
 ICON_SIZE = 64
 DETAIL_WIDTH = 400
@@ -510,5 +508,6 @@ def start():
     sys.exit(app.exec())
 
 if __name__ == "__main__":
+    print_all_paths()
     check_exe_path()
     start()
