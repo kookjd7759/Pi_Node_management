@@ -508,6 +508,6 @@ def start():
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    debug_print_paths()
     check_exe_path()
+    debug_print_paths()
     start()

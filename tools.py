@@ -15,11 +15,6 @@ from zoneinfo import ZoneInfo
 
 from path import * 
 
-EXE_PATH = ''
-def cache_PATH(path):
-    global EXE_PATH
-    EXE_PATH = path
-
 KST = ZoneInfo("Asia/Seoul")
 
 def now_kst() -> datetime:
@@ -38,6 +33,7 @@ def plus_24h(base: datetime | None = None) -> datetime:
 # Window Utility
 # ---------------
 def find_PI_window():
+    print(f'find a exe {EXE_PATH}')
     if EXE_PATH == '':
         print('Pi Network.exe의 실행 경로가 제대로 명시되지 않았습니다.')
         return None
