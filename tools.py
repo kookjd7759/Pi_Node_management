@@ -13,7 +13,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from path import * 
+import path
+from path import *
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -33,12 +34,12 @@ def plus_24h(base: datetime | None = None) -> datetime:
 # Window Utility
 # ---------------
 def find_PI_window():
-    print(f'find a exe {EXE_PATH}')
-    if EXE_PATH == '':
+    print(f'find a exe {path.EXE_PATH}')
+    if path.EXE_PATH == '':
         print('Pi Network.exe의 실행 경로가 제대로 명시되지 않았습니다.')
         return None
-    
-    os.startfile(EXE_PATH)
+
+    os.startfile(path.EXE_PATH)
     time.sleep(1)
 
     proc_name = 'Pi Network.exe'
