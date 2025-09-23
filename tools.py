@@ -4,6 +4,7 @@ import win32process
 import win32gui
 import win32con
 import time
+import json
 import difflib
 import easyocr
 import numpy as np
@@ -32,13 +33,19 @@ def plus_24h(base: datetime | None = None) -> datetime:
 # ---------------
 # Window Utility
 # ---------------
+def read_exe_path():
+    with open(DATA_JSON, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+    return data
+
 def find_PI_window():
-    print(f'find a exe {EXE_PATH}')
-    if EXE_PATH == '':
+    data = read_exe_path()
+    print(f'find a exe {data["exe_path"]}')
+    if data['exe_path'] == '':
         print('Pi Network.exe의 실행 경로가 제대로 명시되지 않았습니다.')
         return None
     
-    os.startfile(EXE_PATH)
+    os.startfile(data['exe_path'])
     time.sleep(1)
 
     proc_name = 'Pi Network.exe'
@@ -151,7 +158,7 @@ def loop_chapture(hwnd):
     scroll_down()
 
     file_name = datetime.now().strftime('%Y-%m-%d_%H시%M분')
-    url = f'{BASE_RECORD}{file_name}.png'
+    url = f'{BASE_RECORD}/{file_name}.png'
     capture_screen(url)
 
     minimize_window(hwnd)

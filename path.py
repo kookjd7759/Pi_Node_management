@@ -23,17 +23,6 @@ BASE_RECORD       = str(_APP / "record")
 CACHE_DIR         = _APP / "cache"
 SCHEDULER_STATE   = str(CACHE_DIR / "scheduler_state.json")
 
-os.makedirs(Path(PATH_OCR).parent, exist_ok=True)
-os.makedirs(BASE_RECORD, exist_ok=True)
-os.makedirs(CACHE_DIR, exist_ok=True)
-os.makedirs(SCHEDULER_STATE, exist_ok=True)
-
-EXE_PATH = ''
-def cache_PATH(path):
-    global EXE_PATH
-    EXE_PATH = path
-    print(f'cache the exe path - {EXE_PATH}')
-
 def debug_print_paths() -> None:
     print("[path] app_dir     :", app_dir())
     print("[path] IMG dir     :", _IMG)
@@ -46,4 +35,3 @@ def debug_print_paths() -> None:
     print("[path] BTN_PI_NODE :", BTN_PI_NODE)
     print("[path] BTN_MINING_STATE :", BTN_MINING_STATE)
     print("[path] SCHEDULER_STATE :", SCHEDULER_STATE)
-    print("[path] EXE_PATH :", EXE_PATH)

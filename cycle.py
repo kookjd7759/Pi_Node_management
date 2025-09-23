@@ -26,7 +26,7 @@ def pick_exe():
         print("선택된 항목이 유효한 실행 파일이 아닙니다.")
         return None
 
-FIND_MAX = 60
+FIND_MAX = 10
 def start():
     print('Pi window를 찾는 중 ...')
     hwnd = None
@@ -42,9 +42,8 @@ def start():
 
 def check_exe_path():
     print('Pi Network.exe 실행 파일 경로를 확인합니다.')
-    with open(DATA_JSON, 'r', encoding='utf-8') as file:
-        data = json.load(file)
     
+    data = read_exe_path()
     if os.path.isfile(data['exe_path']):
         print(f'[OK] {data["exe_path"]}')
     else:
@@ -63,8 +62,6 @@ def check_exe_path():
         data['exe_path'] = path
         with open(DATA_JSON, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
-    
-    cache_PATH(data['exe_path'])
 
 def check():
     hwnd = start()
