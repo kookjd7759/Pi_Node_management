@@ -1,8 +1,10 @@
 from __future__ import annotations
 import os, sys, time, threading
 from datetime import datetime
-from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtCore import Qt
+from typing import Optional
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import Qt
 
 from path import *
 from cycle import *
@@ -19,8 +21,8 @@ CHECK_INTERVAL_SEC = 24 * 60 * 60  # 86400
 FOLDER_TO_OPEN = BASE_RECORD
 
 # (optional) 전역 사이즈
-EXPANDED_WINDOW_SIZE: QtCore.QSize | None = None
-COLLAPSED_WINDOW_SIZE: QtCore.QSize | None = None
+EXPANDED_WINDOW_SIZE: Optional[QtCore.QSize] = None
+COLLAPSED_WINDOW_SIZE: Optional[QtCore.QSize] = None
 
 
 # -------------------- UI Building Blocks --------------------
@@ -86,7 +88,7 @@ class StatusDot(QtWidgets.QWidget):
 
 class RoundIconButton(QtWidgets.QToolButton):
     """아이콘 전용 원형 버튼(28px)."""
-    def __init__(self, icon: QtGui.QIcon | None = None, tooltip: str = "", style_override: str = ""):
+    def __init__(self, icon: Optional[QtGui.QIcon] = None, tooltip: str = "", style_override: str = ""):
         super().__init__()
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(28, 28)
@@ -143,8 +145,6 @@ class DetailPanel(QtWidgets.QFrame):
         lay.addStretch(1)
 
 
-
-
 # -------------------- Main HUD --------------------
 class HUD(QtWidgets.QWidget):
     def __init__(self):
@@ -157,11 +157,11 @@ class HUD(QtWidgets.QWidget):
         # state
         self._ok = True
         self._next_ts = time.time() + CHECK_INTERVAL_SEC   # 시작 시 무조건 지금 + 24h
-        #self._next_ts = time.time() + 5   # developer mode
+        # self._next_ts = time.time() + 5   # developer mode
         self._ts_lock = threading.RLock()
 
-        self._last_cycle_at: float | None = None
-        self._last_cycle_ok: bool | None = None
+        self._last_cycle_at: Optional[float] = None
+        self._last_cycle_ok: Optional[bool] = None
         self._active_workers: int = 0
         self._last_run_msg: str = ""
 
@@ -172,9 +172,10 @@ class HUD(QtWidgets.QWidget):
         self.label_next = QtWidgets.QLabel(); self.label_next.setStyleSheet("color:#dfe2e8; font-size:12px;")
         self._update_next_label()
 
-        # buttons (제목 오른쪽): 체크, 폴더, 플러스
+        # buttons (제목 오른쪽): 체크, 폴더, 경로, 플러스
         self.btn_check = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton), "지금 바로 체크")
         self.btn_folder = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon), "기록 폴더 열기")
+        self.btn_paths = RoundIconButton(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView), "경로")
         self.btn_plus = PlusButton()
 
         # 전원 버튼(맨 왼쪽, 은은한 빨강)
@@ -193,12 +194,14 @@ class HUD(QtWidgets.QWidget):
         self.btn_folder.clicked.connect(self._open_folder)
         self.btn_check.clicked.connect(self._manual_check)
         self.btn_power.clicked.connect(QtWidgets.QApplication.quit)
+        self.btn_paths.clicked.connect(self._open_btn_paths_dialog)
 
         # title/status rows
         title_row = QtWidgets.QHBoxLayout(); title_row.setContentsMargins(0,0,0,0); title_row.setSpacing(8)
         title_row.addWidget(self.title); title_row.addStretch(1)
         title_row.addWidget(self.btn_check)
         title_row.addWidget(self.btn_folder)
+        title_row.addWidget(self.btn_paths)
         title_row.addWidget(self.btn_plus)
 
         status_row = QtWidgets.QHBoxLayout(); status_row.setContentsMargins(0,0,0,0); status_row.setSpacing(8)
@@ -276,15 +279,14 @@ class HUD(QtWidgets.QWidget):
         # 좌클릭 눌렀을 때: 드래그 시작
         if event.type() == QtCore.QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
             self._dragging = True
-            # 현재 커서의 전역 좌표 - 창의 좌상단 오프셋 저장
-            # (PySide6: globalPosition() -> QPointF)
-            gp = event.globalPosition().toPoint()
+            # PyQt5: 전역 좌표는 globalPos() (QPoint 반환)
+            gp = event.globalPos()
             self._drag_offset = gp - self.frameGeometry().topLeft()
             return True  # 이벤트 소진(기본 처리 막음)
 
         # 마우스 이동 중: 드래그이면 창 이동
         if event.type() == QtCore.QEvent.MouseMove and self._dragging:
-            gp = event.globalPosition().toPoint()
+            gp = event.globalPos()
             self.move(gp - self._drag_offset)
             return True
 
@@ -348,9 +350,8 @@ class HUD(QtWidgets.QWidget):
             self._active_workers -= 1
             self._update_status_label()
 
-
     def _move_to_top_left(self):
-        screen = QtGui.QGuiApplication.primaryScreen().availableGeometry()
+        screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         self.move(screen.left(), screen.top())
 
     def showEvent(self, e):
@@ -432,9 +433,6 @@ class HUD(QtWidgets.QWidget):
 
         self.detail.lbl_status.setText(text)
 
-
-
-
     def _update_next_label(self):
         with self._ts_lock:
             ts = self._next_ts
@@ -451,6 +449,12 @@ class HUD(QtWidgets.QWidget):
             return
         QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
         self._log(f"폴더 열기: {path}")
+
+    def _open_btn_paths_dialog(self):
+        dlg = QtWidgets.QMessageBox(self)
+        dlg.setWindowTitle("경로")
+        dlg.setText("!")
+        dlg.exec_()
 
     # expand/collapse
     def _toggle_detail(self):
@@ -505,7 +509,7 @@ def start():
     app = QtWidgets.QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     w = HUD(); w.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     check_exe_path()
