@@ -25,6 +25,7 @@ def _wait_for_window():
     return None
 
 def _launch_program(path):
+    print(f'program path : {path}')
     subprocess.Popen(
         [path],
         stdout=subprocess.DEVNULL,
@@ -78,7 +79,7 @@ def capture():
         0,
         1
     )
-    img.save(path.CURRENT_STATE)
+    img.save(path.RECENT_STATE)
 
     # 정리
     win32gui.ReleaseDC(_PROGRAM_HWND, hwnd_dc)

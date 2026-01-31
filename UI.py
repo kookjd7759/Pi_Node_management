@@ -1,18 +1,19 @@
 import sys
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
     QApplication, QWidget, QMainWindow,
     QPushButton, QLabel, QStackedWidget, QComboBox,
-    QFrame, QGraphicsDropShadowEffect, QSizePolicy
+    QFrame, QSizePolicy
 )
 
+import program
 import config
-
+import path
 
 class MainWindow(QMainWindow):
     def init_item(self):
-        # init check time items
         for value in range(0, 24):
             key = f'{value:02}:00'
             self.item_check_time_key.append(key)
@@ -20,6 +21,9 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        config.init()
+        program.init()
+
         self.setWindowTitle('Pi Node Manager')
         self.resize(900, 520)
 
@@ -36,8 +40,9 @@ class MainWindow(QMainWindow):
             color: #EAF0FF;
             font-family: "Segoe UI", "Pretendard", "Noto Sans KR";
             font-size: 14px;
+            border-radius: 18px;
         }
-        
+        QLabel { background: transparent; }
         /* ====== Left Sidebar ====== */
         QFrame#Sidebar {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -110,7 +115,7 @@ class MainWindow(QMainWindow):
         QPushButton#ActionPrimary {
             padding: 14px 16px;
             border-radius: 18px;
-            border: 1px solid rgba(80,160,255,0.38);
+            border: 2px solid rgba(80,160,255,1);
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                         stop:0 #2E6AE6,
                         stop:1 #00BFE0);
@@ -118,7 +123,7 @@ class MainWindow(QMainWindow):
             letter-spacing: 0.2px;
         }
         QPushButton#ActionPrimary:hover {
-            border: 1px solid rgba(120,200,255,0.55);
+            border: 2px solid rgba(120,200,255,1);
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                         stop:0 rgba(66,133,244,0.70),
                         stop:1 rgba(0,220,255,0.45));
@@ -130,13 +135,13 @@ class MainWindow(QMainWindow):
         QPushButton#ActionSecondary {
             padding: 14px 16px;
             border-radius: 18px;
-            border: 1px solid rgba(255,255,255,0.10);
-            background: #141C2B;
+            border: 1px solid rgba(80,80,80,1);
+            background: rgba(255,255,255,0.04);;
             font-weight: 800;
         }
         QPushButton#ActionSecondary:hover {
             background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.16);
+            border: 1px solid rgba(80,80,80,1);
         }
         QPushButton#ActionSecondary:pressed {
             background: rgba(255,255,255,0.03);
@@ -153,14 +158,6 @@ class MainWindow(QMainWindow):
         QComboBox:hover {
             border: 1px solid rgba(120,180,255,0.30);
         }
-        QComboBox::drop-down {
-            subcontrol-origin: padding;
-            subcontrol-position: top right;
-            width: 34px;
-            border-left: 1px solid rgba(255,255,255,0.08);
-            border-top-right-radius: 14px;
-            border-bottom-right-radius: 14px;
-        }
         QComboBox QAbstractItemView {
             background: #0E1830;
             border: 1px solid rgba(255,255,255,0.10);
@@ -173,6 +170,21 @@ class MainWindow(QMainWindow):
         QLabel#FieldLabel {
             color: rgba(234,240,255,0.80);
             font-weight: 800;
+        }
+        
+        QWidget#TopRow {
+            background: transparent;
+            border-radius: 18px;
+        }
+                           
+        /* ====== Dashboard Image Card ====== */
+        QFrame#ImageCard {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 18px;
+        }
+        QLabel#ImageView {
+            border-radius: 16px; /* 카드 안쪽 이미지 둥글게 */
         }
         """)
 
@@ -200,7 +212,7 @@ class MainWindow(QMainWindow):
         title.setObjectName("BrandTitle")
         title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        sub = QLabel("Minimal control panel • Dark mode UI")
+        sub = QLabel("Pi( π ) Coin Mining Manager")
         sub.setObjectName("BrandSub")
         sub.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
@@ -222,7 +234,7 @@ class MainWindow(QMainWindow):
         btn_setting.setCheckable(True)
         btn_dashboard.setAutoExclusive(True)
         btn_setting.setAutoExclusive(True)
-        btn_dashboard.setChecked(True)  # default page = Dashboard
+        btn_dashboard.setChecked(True)
 
         left_layout.addWidget(brand)
         left_layout.addSpacing(6)
@@ -284,18 +296,9 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(root)
 
-    # (UI helper only)
     def _set_header(self, t, h):
         self.header_title.setText(t)
         self.header_hint.setText(h)
-
-    # (UI helper only)
-    def _shadow(self, widget, blur=24, y=10):
-        eff = QGraphicsDropShadowEffect(self)
-        eff.setBlurRadius(blur)
-        eff.setOffset(0, y)
-        eff.setColor(Qt.black)
-        widget.setGraphicsEffect(eff)
 
     def page_main(self):
         w = QWidget()
@@ -311,28 +314,27 @@ class MainWindow(QMainWindow):
         card_layout.setSpacing(14)
 
         top_row = QWidget()
+        top_row.setObjectName("TopRow")
+        top_row.setAttribute(Qt.WA_StyledBackground, True)
         top_row_layout = QHBoxLayout(top_row)
         top_row_layout.setContentsMargins(0, 0, 0, 0)
         top_row_layout.setSpacing(12)
 
-        # Big primary button
-        btn_capture = QPushButton('📸  CAPTURE\nMining state')
+        btn_capture = QPushButton('📸 CAPTURE\nMining state')
         btn_capture.setObjectName("ActionPrimary")
         btn_capture.setMinimumHeight(92)
         btn_capture.clicked.connect(self.function_btn_capture)
 
-        # Secondary buttons (same functions)
-        btn_open_node = QPushButton('🟢  OPEN\nPi node')
+        btn_open_node = QPushButton('🟢 OPEN\nPi node')
         btn_open_node.setObjectName("ActionSecondary")
         btn_open_node.setMinimumHeight(92)
         btn_open_node.clicked.connect(self.function_btn_open_node)
 
-        btn_restart_node = QPushButton('🔁  RESTART\nPi node')
+        btn_restart_node = QPushButton('🔁 RESTART\nPi node')
         btn_restart_node.setObjectName("ActionSecondary")
         btn_restart_node.setMinimumHeight(92)
         btn_restart_node.clicked.connect(self.function_btn_restart_node)
 
-        # proportions: primary bigger
         btn_capture.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         btn_open_node.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         btn_restart_node.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -341,14 +343,13 @@ class MainWindow(QMainWindow):
         top_row_layout.addWidget(btn_open_node, 1)
         top_row_layout.addWidget(btn_restart_node, 1)
 
-        # Info strip (purely UI)
         info = QFrame()
         info.setStyleSheet("background: transparent; border: none;")
         info_layout = QHBoxLayout(info)
         info_layout.setContentsMargins(12, 10, 12, 10)
         info_layout.setSpacing(10)
 
-        hint = QLabel("● Tip: Capture first, then restart if the node looks stuck.")
+        hint = QLabel("● Capture first, then restart if the node looks stuck.")
         hint.setStyleSheet("color: rgba(234,240,255,0.75); font-weight: 700;")
         info_layout.addWidget(hint)
         info_layout.addStretch()
@@ -357,8 +358,41 @@ class MainWindow(QMainWindow):
         card_layout.addWidget(info)
 
         outer.addWidget(card)
-        outer.addStretch()
 
+        img_card = QFrame()
+        img_card.setObjectName("ImageCard")
+        img_card_layout = QVBoxLayout(img_card)
+        img_card_layout.setContentsMargins(12, 12, 12, 12)
+        img_card_layout.setSpacing(8)
+
+        img_title = QLabel("Status snapshot")
+        img_title.setStyleSheet("color: rgba(234,240,255,0.80); font-weight: 800;")
+        img_card_layout.addWidget(img_title)
+
+        self.dashboard_img = QLabel()
+        self.dashboard_img.setObjectName("ImageView")
+        self.dashboard_img.setMinimumHeight(220)
+        self.dashboard_img.setAlignment(Qt.AlignCenter)
+        self.dashboard_img.setStyleSheet("""
+            QLabel#ImageView {
+                background: rgba(255,255,255,0.02);
+                border: 1px solid rgba(255,255,255,0.06);
+            }
+        """)
+
+        pix = QPixmap(path.RECENT_STATE)
+        if pix.isNull():
+            self.dashboard_img.setText("Image not found\n" + path.RECENT_STATE)
+            self.dashboard_img.setStyleSheet(self.dashboard_img.styleSheet() + "color: rgba(234,240,255,0.55);")
+        else:
+            self.dashboard_img.setPixmap(pix.scaled(
+                1000, 600, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            ))
+
+        img_card_layout.addWidget(self.dashboard_img)
+        outer.addWidget(img_card)
+
+        outer.addStretch()
         return w
 
     def page_settings(self):
@@ -398,7 +432,7 @@ class MainWindow(QMainWindow):
         tip_layout.setContentsMargins(12, 10, 12, 10)
         tip_layout.setSpacing(8)
 
-        msg = QLabel("● Tip: Saved instantly when you change the value.")
+        msg = QLabel("● Saved instantly when you change the value.")
         msg.setStyleSheet("color: rgba(234,240,255,0.75); font-weight: 700;")
         tip_layout.addWidget(msg)
         tip_layout.addStretch()
@@ -413,13 +447,10 @@ class MainWindow(QMainWindow):
 
     def function_btn_capture(self):
         print('function_btn_capture')
-
     def function_btn_open_node(self):
         print('function_btn_open_node')
-
     def function_btn_restart_node(self):
         print('function_btn_restart_node')
-
     def function_comboBox_select_item(self, index):
         print(f'function_comboBox_select_item {index}')
         config.set_check_time(index)
