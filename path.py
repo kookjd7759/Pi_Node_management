@@ -1,29 +1,26 @@
-from __future__ import annotations
+import getpass
+import sys
 import os
 
-_BASE = f"{os.path.dirname(os.path.abspath(__file__))}/"
-_IMG = _BASE + "btn_img/"
+def get_base_path():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+BASE_PATH = get_base_path()
 
-BTN_PI_APP              = _IMG + "Pi_App.png"
-BTN_PI_NODE             = _IMG + "Pi_Node.png"
-BTN_MINING_STATE        = _IMG + "Mining_state.png"
-LABEL_SCROLL_SUPPORT    = _IMG + "scroll_support.png"
-ICON                    = _IMG + "Pi coin.png"
+### generally program path
+# = C:\\Users\\(user_name)\\AppData\\Local\\Programs\\pi-network-desktop\\Pi Network
+def expect_program_path():
+    expected_path = f'c:\\Users\\{getpass.getuser()}\\AppData\\Local\\Programs\\Pi-network-desktop\\Pi Network.exe'
+    if os.path.exists(expected_path):
+        return expected_path
+    else:
+        return None
 
-DATA_JSON         = _BASE + "data.json"
-PATH_OCR          = _BASE + "temp/ocr.png"
-BASE_RECORD       = _BASE + "record"
-SCHEDULER_STATE   = _BASE + "cache/scheduler_state.json"
+CONFIG_PATH = BASE_PATH + '\\config.json'
+CURRENT_STATE = BASE_PATH + '\\current.png'
 
-def debug_print_paths() -> None:
-    print("[path] IMG dir     :", _IMG)
-    print("[path] DATA_JSON   :", DATA_JSON)
-    print("[path] TEMP(OCR)   :", PATH_OCR)
-    print("[path] RECORD DIR  :", BASE_RECORD)
-    print("[path] SCHED STATE :", SCHEDULER_STATE)
-    print("[path] BTN_PI_APP :", BTN_PI_APP)
-    print("[path] BTN_PI_NODE :", BTN_PI_NODE)
-    print("[path] BTN_MINING_STATE :", BTN_MINING_STATE)
-    print("[path] SCHEDULER_STATE :", SCHEDULER_STATE)
-
-debug_print_paths()
+if __name__ == '__main__':
+    print(f'BASE_PATH - {BASE_PATH}')
+    print(f'CONFIG_PATH - {CONFIG_PATH}')
