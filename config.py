@@ -23,7 +23,6 @@ def _load():
     global _DATA
     
     if not os.path.exists(path.CONFIG_PATH):
-        ## Initial config data
         data = {
             'path' : None,
             'check_time' : 0
