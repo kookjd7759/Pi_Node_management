@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
     QApplication, QWidget, QMainWindow,
@@ -22,7 +22,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         config.init()
-        program.init()
 
         self.setWindowTitle('Pi Node Manager')
         self.resize(900, 520)
@@ -295,6 +294,12 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(content_shell, 1)
 
         self.setCentralWidget(root)
+        self._raise()
+        program.init()
+
+    def closeEvent(self, event):
+        program.terminate()
+        event.accept()
 
     def _set_header(self, t, h):
         self.header_title.setText(t)
@@ -325,10 +330,15 @@ class MainWindow(QMainWindow):
         btn_capture.setMinimumHeight(92)
         btn_capture.clicked.connect(self.function_btn_capture)
 
-        btn_open_node = QPushButton('🟢 OPEN\nPi node')
-        btn_open_node.setObjectName("ActionSecondary")
-        btn_open_node.setMinimumHeight(92)
-        btn_open_node.clicked.connect(self.function_btn_open_node)
+        btn_maxi_node = QPushButton('⬜ MAXIMIZE\nPi node window')
+        btn_maxi_node.setObjectName("ActionSecondary")
+        btn_maxi_node.setMinimumHeight(92)
+        btn_maxi_node.clicked.connect(self.function_btn_maxi_node)
+
+        btn_mini_node = QPushButton('➖ MINIMIZE\nPi node window')
+        btn_mini_node.setObjectName("ActionSecondary")
+        btn_mini_node.setMinimumHeight(92)
+        btn_mini_node.clicked.connect(self.function_btn_mini_node)
 
         btn_restart_node = QPushButton('🔁 RESTART\nPi node')
         btn_restart_node.setObjectName("ActionSecondary")
@@ -336,11 +346,12 @@ class MainWindow(QMainWindow):
         btn_restart_node.clicked.connect(self.function_btn_restart_node)
 
         btn_capture.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        btn_open_node.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        btn_maxi_node.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         btn_restart_node.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         top_row_layout.addWidget(btn_capture, 2)
-        top_row_layout.addWidget(btn_open_node, 1)
+        top_row_layout.addWidget(btn_maxi_node, 1)
+        top_row_layout.addWidget(btn_mini_node, 1)
         top_row_layout.addWidget(btn_restart_node, 1)
 
         info = QFrame()
@@ -445,19 +456,30 @@ class MainWindow(QMainWindow):
 
         return w
 
+    def _raise(self):
+        self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
     def function_btn_capture(self):
         print('function_btn_capture')
-    def function_btn_open_node(self):
-        print('function_btn_open_node')
+    def function_btn_maxi_node(self):
+        program.maximize()
+        self._raise()
+    def function_btn_mini_node(self):
+        program.minimize()
+        self._raise()
     def function_btn_restart_node(self):
-        print('function_btn_restart_node')
+        program.restart()
+        self._raise()
     def function_comboBox_select_item(self, index):
         print(f'function_comboBox_select_item {index}')
         config.set_check_time(index)
 
 
+
 if __name__ == "__main__":
-    config.init()
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
