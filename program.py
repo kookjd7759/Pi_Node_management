@@ -24,10 +24,10 @@ def _find_window(wait=60):
         time.sleep(0.5)
     return None
 
-def _wait_window_ready(timeout=60, stable_count=8, stable_px=2):
+def _wait_window_ready(timeout=60, stable_count=10):
     start = time.time()
 
-    # 1️⃣ GUI 메시지 루프 초기화 대기 (가장 신뢰도 높음)
+    # GUI 메시지 루프 초기화 대기
     try:
         _, pid = win32process.GetWindowThreadProcessId(_PROGRAM_HWND)
         hProc = win32api.OpenProcess(
@@ -38,23 +38,17 @@ def _wait_window_ready(timeout=60, stable_count=8, stable_px=2):
         win32process.WaitForInputIdle(hProc, 10000)
         win32api.CloseHandle(hProc)
     except:
-        pass  # 일부 앱에서는 실패 가능
+        pass
 
     last_rect = None
     stable = 0
 
-    # 2️⃣ 창 안정화 감시 루프
+    # 창 안정화 감시
     while time.time() - start < timeout:
         if not win32gui.IsWindow(_PROGRAM_HWND):
             return False
 
-        # 최소화 상태면 아직 안정화 아님
-        if win32gui.IsIconic(_PROGRAM_HWND):
-            stable = 0
-            time.sleep(0.05)
-            continue
-
-        # 메시지 루프 응답 확인 (멈춘 창 필터링)
+        # hung 여부 체크 (WM_NULL 응답 확인)
         try:
             win32gui.SendMessageTimeout(
                 _PROGRAM_HWND,
@@ -69,28 +63,14 @@ def _wait_window_ready(timeout=60, stable_count=8, stable_px=2):
             time.sleep(0.05)
             continue
 
-        l, t, r, b = win32gui.GetWindowRect(_PROGRAM_HWND)
-        w, h = r - l, b - t
-
-        # 너무 작은 크기는 초기 상태로 간주
-        if w < 200 or h < 200:
-            stable = 0
-            time.sleep(0.05)
-            continue
-
-        rect = (l, t, r, b)
+        rect = win32gui.GetWindowRect(_PROGRAM_HWND)
 
         if last_rect is None:
             last_rect = rect
             stable = 0
         else:
-            dl = abs(rect[0] - last_rect[0])
-            dt = abs(rect[1] - last_rect[1])
-            dr = abs(rect[2] - last_rect[2])
-            db = abs(rect[3] - last_rect[3])
-
-            if dl <= stable_px and dt <= stable_px \
-               and dr <= stable_px and db <= stable_px:
+            # rect가 완전히 동일해야 stable 카운트 증가
+            if rect == last_rect:
                 stable += 1
                 if stable >= stable_count:
                     return True
@@ -155,6 +135,7 @@ def minimize():
         return True
 
     win32gui.ShowWindow(_PROGRAM_HWND, win32con.SW_MINIMIZE)
+    _wait_window_ready()
     return True
 
 def maximize():
@@ -165,6 +146,7 @@ def maximize():
         return True
 
     win32gui.ShowWindow(_PROGRAM_HWND, win32con.SW_MAXIMIZE)
+    _wait_window_ready()
     return True
 
 def init():

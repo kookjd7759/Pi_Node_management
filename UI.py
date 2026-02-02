@@ -1,6 +1,8 @@
+import datetime
 import sys
+import os
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
     QApplication, QWidget, QMainWindow,
@@ -375,11 +377,11 @@ class MainWindow(QMainWindow):
         img_card_layout = QVBoxLayout(img_card)
         img_card_layout.setContentsMargins(12, 12, 12, 12)
         img_card_layout.setSpacing(8)
-
-        img_title = QLabel("Status snapshot")
+        
+        img_title = QLabel("Recent status capture image")
         img_title.setStyleSheet("color: rgba(234,240,255,0.80); font-weight: 800;")
         img_card_layout.addWidget(img_title)
-
+        
         self.dashboard_img = QLabel()
         self.dashboard_img.setObjectName("ImageView")
         self.dashboard_img.setMinimumHeight(220)
@@ -393,9 +395,13 @@ class MainWindow(QMainWindow):
 
         pix = QPixmap(path.RECENT_STATE)
         if pix.isNull():
+            img_title.setText(img_title.text() + ' (-)')
             self.dashboard_img.setText("Image not found\n" + path.RECENT_STATE)
             self.dashboard_img.setStyleSheet(self.dashboard_img.styleSheet() + "color: rgba(234,240,255,0.55);")
         else:
+            mtime = os.path.getmtime(path)
+            dt = datetime.datetime.fromtimestamp(mtime)
+            img_title.setText(img_title.text() + f' ({dt})')
             self.dashboard_img.setPixmap(pix.scaled(
                 1000, 600, Qt.KeepAspectRatio, Qt.SmoothTransformation
             ))

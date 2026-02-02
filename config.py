@@ -7,7 +7,7 @@ import path
 
 _DATA = None
 
-### user selet Pi Desktop execution program
+### user select Pi Desktop execution program
 def _find_file_exe():
     root = tk.Tk()
     root.withdraw() 
