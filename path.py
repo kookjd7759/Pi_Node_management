@@ -23,11 +23,10 @@ CONFIG_PATH = BASE_PATH + '\\config.json'
 ICON = IMG_BASE + '\\icon.png'
 
 IMG_RECENT_STATE = IMG_BASE + '\\recent.png'
-IMG_CLOSE_BTN = IMG_BASE + '\\data\\close_btn.png'
+IMG_MININGRATE_TXT = IMG_BASE + '\\data\\basic_mining_rate_txt.png'
 IMG_LOGIN_BTN = IMG_BASE + '\\data\\login_btn.png'
-IMG_PINODE_BTN = IMG_BASE + '\\data\\Pi_Node_btn.png'
 IMG_PIAPP_BTN = IMG_BASE + '\\data\\Pi_App_btn.png'
-IMG_NODEON_TXT = IMG_BASE + '\\data\\TurnTheNodeOn_txt.png'
+IMG_STATUS_BTN = IMG_BASE + '\\data\\status_btn.png'
 
 if __name__ == '__main__':
     print(f'BASE_PATH - {BASE_PATH}')
@@ -35,9 +34,8 @@ if __name__ == '__main__':
     print(f'ICON - {ICON}')
     print(f'CONFIG_PATH - {CONFIG_PATH}')
     print(f'IMG_RECENT_STATE - {IMG_RECENT_STATE}')
-    print(f'IMG_CLOSE_BTN - {IMG_CLOSE_BTN}')
+    print(f'IMG_MININGRATE_TXT - {IMG_MININGRATE_TXT}')
     print(f'IMG_LOGIN_BTN - {IMG_LOGIN_BTN}')
-    print(f'IMG_PINODE_BTN - {IMG_PINODE_BTN}')
     print(f'IMG_PIAPP_BTN - {IMG_PIAPP_BTN}')
-    print(f'IMG_NODEON_TXT - {IMG_NODEON_TXT}')
+    print(f'IMG_STATUS_BTN - {IMG_STATUS_BTN}')
     print(os.environ.get("USERPROFILE"))

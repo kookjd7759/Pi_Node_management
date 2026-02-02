@@ -230,41 +230,34 @@ def _find_image(image: str, threshold: float = 0.8):
 
     found = maxv >= threshold
 
-    print(f"found={found} score={maxv:.4f} x={cx} y={cy} (raw_img={cx_img},{cy_img})")
+    print(f"found={found} score={maxv:.4f} x={cx} y={cy}")
     return found, (cx, cy)
 
-''' Status
-0: have to login
-1: mining online
-2: mining offline
-
--1: time out (I do not know this page)'''
-def checking_status(timeout=180):
+def checking_status():
+    restart()
     maximize()
 
     start = time.time()
-    # Go to Pi Node page (60s)
-    while time.time() - start < 60:
-        piNode, (x, y) = _find_image(path.IMG_PINODE_BTN)
-        if piNode:
+    while time.time() - start < 120: # (120s)
+        status_btn, (x, y) = _find_image(path.IMG_STATUS_BTN)
+        if status_btn:
             _move_mouse(x, y)
             _click_mouse()
-            break
-    
-    if time.time() - start > timeout:
-        return -1
-    
-    start = time.time()
-    # Checking status (60s)
-    while time.time() - start < 60:
-        notMining, (x, y) = _find_image(path.IMG_NODEON_TXT)
-        if notMining:
-            return 2
         
+        time.sleep(1)
+
+        isSuccess, (x, y) = _find_image(path.IMG_MININGRATE_TXT)
+        if isSuccess:
+            minimize()
+            return True
     
+    minimize()
+    return False
+
+
 
 if __name__ == '__main__':
     config.init()
     init()
-    time.sleep(3)
+    time.sleep(0.5)
     checking_status()

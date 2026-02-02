@@ -388,8 +388,7 @@ class MainWindow(QMainWindow):
         status_label = QLabel("Current Node status")
         status_label.setObjectName("FieldLabel")
 
-        # [⚪ Not checked yet], [🟢 Mining Online], [🔴 Mining Offline], [🟡 Checking]
-        # [🔴 Have to Login]
+        # [⚪ Not checked yet], [🟢 Mining Online], [🔴 Mining Offline], [🟡 Checking...]
         self.line_status = QLineEdit("⚪ Not checked yet")
         self.line_status.setReadOnly(True)
         self.line_status.setFocusPolicy(Qt.NoFocus)
@@ -406,8 +405,17 @@ class MainWindow(QMainWindow):
         """)
 
         status_layout.addWidget(status_label)
+        btn_check_status = QPushButton("🔎 Check")
+        btn_check_status.setObjectName("ActionSecondary")
+        btn_check_status.setMinimumHeight(40)
+        btn_check_status.clicked.connect(self.function_btn_check_status)
+
+        status_layout.addSpacing(10)
+        status_layout.addWidget(btn_check_status)
+
         status_layout.addStretch(1)
         status_layout.addWidget(self.line_status, 0)
+
 
         outer.addWidget(status_row)
 
@@ -543,6 +551,14 @@ class MainWindow(QMainWindow):
         self._raise()
     def function_comboBox_select_item(self, index):
         config.set_check_time(index)
+    def function_btn_check_status(self):
+        # TODO: 여기에 실제 상태 판별 로직 연결
+        self.line_status.setText('🟡 Checking...')
+        isOk = program.checking_status()
+        if isOk:
+            self.line_status.setText('🟢 Mining Online')
+        else:
+            self.line_status.setText('🔴 Mining Offline')
 
 
 
