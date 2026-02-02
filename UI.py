@@ -1,7 +1,7 @@
 import datetime
 import sys
 import os
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, 
@@ -36,6 +36,7 @@ class MainWindow(QMainWindow):
         config.init()
 
         self.setWindowTitle('Pi Node Manager')
+        self.setWindowIcon(QIcon(path.ICON))
         self.resize(900, 520)
 
         # ---- item init
@@ -387,8 +388,9 @@ class MainWindow(QMainWindow):
         status_label = QLabel("Current Node status")
         status_label.setObjectName("FieldLabel")
 
-        # [⚫ Not checked yet], [🟢 Mining Online], [🔴 Mining Offline], [🟡 Checking]
-        self.line_status = QLineEdit("🟢 Online")
+        # [⚪ Not checked yet], [🟢 Mining Online], [🔴 Mining Offline], [🟡 Checking]
+        # [🔴 Have to Login]
+        self.line_status = QLineEdit("⚪ Not checked yet")
         self.line_status.setReadOnly(True)
         self.line_status.setFocusPolicy(Qt.NoFocus)
         self.line_status.setCursorPosition(0)

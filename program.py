@@ -17,9 +17,9 @@ _USER32 = ctypes.windll.user32
 _PROGRAM_PATH = None
 _PROGRAM_HWND = None
 
-def _find_window(wait=60):
+def _find_window(timeout=60):
     start = time.time()
-    while time.time() - start < wait:
+    while time.time() - start < timeout:
         hwnd = win32gui.FindWindow(None, 'Pi Desktop')
         if hwnd != 0:
             return hwnd
@@ -233,9 +233,38 @@ def _find_image(image: str, threshold: float = 0.8):
     print(f"found={found} score={maxv:.4f} x={cx} y={cy} (raw_img={cx_img},{cy_img})")
     return found, (cx, cy)
 
+''' Status
+0: have to login
+1: mining online
+2: mining offline
 
+-1: time out (I do not know this page)'''
+def checking_status(timeout=180):
+    maximize()
+
+    start = time.time()
+    # Go to Pi Node page (60s)
+    while time.time() - start < 60:
+        piNode, (x, y) = _find_image(path.IMG_PINODE_BTN)
+        if piNode:
+            _move_mouse(x, y)
+            _click_mouse()
+            break
+    
+    if time.time() - start > timeout:
+        return -1
+    
+    start = time.time()
+    # Checking status (60s)
+    while time.time() - start < 60:
+        notMining, (x, y) = _find_image(path.IMG_NODEON_TXT)
+        if notMining:
+            return 2
+        
+    
 
 if __name__ == '__main__':
-    #config.init()
-    #init()
+    config.init()
+    init()
     time.sleep(3)
+    checking_status()
