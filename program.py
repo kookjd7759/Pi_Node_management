@@ -3,13 +3,17 @@ import win32process
 import win32api
 import win32gui
 import win32con
+import ctypes
 import time
+import cv2
+import numpy as np
 
 from PIL import ImageGrab
 
 import config
 import path
 
+_USER32 = ctypes.windll.user32
 _PROGRAM_PATH = None
 _PROGRAM_HWND = None
 
@@ -99,18 +103,38 @@ def excute():
     _wait_window_ready()
 
 def terminate():
+    global _PROGRAM_PATH, _PROGRAM_HWND
+    hwnd = _PROGRAM_HWND
+    _PROGRAM_PATH = None
+    _PROGRAM_HWND = None
+
+    # 0. 이미 종료 된 경우 (핸들이 유효한지 확인)
+    try:
+        if hwnd is None or hwnd == 0:
+            return True
+        if not win32gui.IsWindow(hwnd):
+            return True
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        if pid == 0:
+            return True
+    except:
+        return True
+    
     # 1. 정상 종료 요청 (5s)
-    win32gui.PostMessage(_PROGRAM_HWND, win32con.WM_CLOSE, 0, 0)
+    try:
+        win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+    except Exception:
+        return True
 
     start = time.time()
     while time.time() - start < 5:
-        if not win32gui.IsWindow(_PROGRAM_HWND):
+        if not win32gui.IsWindow(hwnd):
             return True
         time.sleep(0.5)
 
     # 2. 강제 종료
     try:
-        _, pid = win32process.GetWindowThreadProcessId(_PROGRAM_HWND)
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
         hProc = win32api.OpenProcess(win32con.PROCESS_TERMINATE, False, pid)
         win32api.TerminateProcess(hProc, -1)
         win32api.CloseHandle(hProc)
@@ -120,9 +144,6 @@ def terminate():
 
 def restart():
     terminate()
-    global _PROGRAM_PATH, _PROGRAM_HWND
-    _PROGRAM_PATH = None
-    _PROGRAM_HWND = None
     init()
 
 def minimize():
@@ -158,15 +179,63 @@ def capture():
 
     img = ImageGrab.grab(all_screens=False)
 
-    if path.RECENT_STATE:
-        img.save(path.RECENT_STATE)
+    if path.IMG_RECENT_STATE:
+        img.save(path.IMG_RECENT_STATE)
 
     minimize()
 
     return img
 
+def _move_mouse(x, y):
+    _USER32.SetCursorPos(x, y)
+
+def _click_mouse():
+    _USER32.mouse_event(0x0002, 0, 0, 0, 0)
+    time.sleep(0.1)
+    _USER32.mouse_event(0x0004, 0, 0, 0, 0)
+
+def _find_image(image: str, threshold: float = 0.8):
+    _SM_XVIRTUALSCREEN = 76
+    _SM_YVIRTUALSCREEN = 77
+    _SM_CXVIRTUALSCREEN = 78
+    _SM_CYVIRTUALSCREEN = 79
+
+    # 1) 전체 화면 캡쳐 (모든 모니터 포함)
+    img = ImageGrab.grab(all_screens=True).convert("RGB")
+    screen = np.array(img)
+    screen_gray = cv2.cvtColor(screen, cv2.COLOR_RGB2GRAY)
+
+    # 2) 템플릿 로드
+    templ = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
+    if templ is None:
+        raise FileNotFoundError(image)
+
+    # 3) 템플릿 매칭
+    res = cv2.matchTemplate(screen_gray, templ, cv2.TM_CCOEFF_NORMED)
+    _, maxv, _, maxloc = cv2.minMaxLoc(res)
+
+    h, w = templ.shape[:2]
+    cx_img = maxloc[0] + w // 2
+    cy_img = maxloc[1] + h // 2
+
+    # 4) "이미지 좌표" -> "실제 화면 좌표"로 스케일/오프셋 보정
+    vx = _USER32.GetSystemMetrics(_SM_XVIRTUALSCREEN)
+    vy = _USER32.GetSystemMetrics(_SM_YVIRTUALSCREEN)
+    vw = _USER32.GetSystemMetrics(_SM_CXVIRTUALSCREEN)
+    vh = _USER32.GetSystemMetrics(_SM_CYVIRTUALSCREEN)
+
+    img_w, img_h = img.size
+    cx = int(vx + cx_img * (vw / img_w))
+    cy = int(vy + cy_img * (vh / img_h))
+
+    found = maxv >= threshold
+
+    print(f"found={found} score={maxv:.4f} x={cx} y={cy} (raw_img={cx_img},{cy_img})")
+    return found, (cx, cy)
+
+
 
 if __name__ == '__main__':
-    config.init()
-    init()
-    capture()
+    #config.init()
+    #init()
+    time.sleep(3)

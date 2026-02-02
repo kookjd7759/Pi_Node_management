@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, 
     QApplication, QWidget, QMainWindow,
     QPushButton, QLabel, QStackedWidget, QComboBox,
-    QFrame, QSizePolicy
+    QFrame, QSizePolicy, QLineEdit
 )
 
 import program
@@ -378,6 +378,37 @@ class MainWindow(QMainWindow):
 
         outer.addWidget(card)
 
+        status_row = QFrame()
+        status_row.setObjectName("Card")
+        status_layout = QHBoxLayout(status_row)
+        status_layout.setContentsMargins(16, 12, 16, 12)
+        status_layout.setSpacing(10)
+
+        status_label = QLabel("Current Node status")
+        status_label.setObjectName("FieldLabel")
+
+        # [⚫ Not checked yet], [🟢 Mining Online], [🔴 Mining Offline], [🟡 Checking]
+        self.line_status = QLineEdit("🟢 Online")
+        self.line_status.setReadOnly(True)
+        self.line_status.setFocusPolicy(Qt.NoFocus)
+        self.line_status.setCursorPosition(0)
+        self.line_status.setStyleSheet("""
+            QLineEdit {
+                padding: 10px 12px;
+                border-radius: 14px;
+                border: 1px solid rgba(255,255,255,0.10);
+                background: rgba(255,255,255,0.03);
+                color: rgba(234,240,255,0.92);
+                font-weight: 800;
+            }
+        """)
+
+        status_layout.addWidget(status_label)
+        status_layout.addStretch(1)
+        status_layout.addWidget(self.line_status, 0)
+
+        outer.addWidget(status_row)
+
         img_card = QFrame()
         img_card.setObjectName("ImageCard")
         img_card_layout = QVBoxLayout(img_card)
@@ -468,12 +499,12 @@ class MainWindow(QMainWindow):
         base_title = "Recent status capture image"
 
         pix = QPixmap()
-        ok = pix.load(path.RECENT_STATE) 
+        ok = pix.load(path.IMG_RECENT_STATE) 
 
-        if (not ok) or pix.isNull() or (not os.path.exists(path.RECENT_STATE)):
+        if (not ok) or pix.isNull() or (not os.path.exists(path.IMG_RECENT_STATE)):
             self.img_title.setText(f"{base_title} (-)")
             self.dashboard_img.clear()
-            self.dashboard_img.setText(f"Image not found\n{path.RECENT_STATE}")
+            self.dashboard_img.setText(f"Image not found\n{path.IMG_RECENT_STATE}")
             self.dashboard_img.setAlignment(Qt.AlignCenter)
             self.dashboard_img.setStyleSheet("""
                 QLabel#ImageView {
@@ -484,7 +515,7 @@ class MainWindow(QMainWindow):
             """)
             return
 
-        mtime = os.path.getmtime(path.RECENT_STATE)
+        mtime = os.path.getmtime(path.IMG_RECENT_STATE)
         dt = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
         self.img_title.setText(f"{base_title} ({dt})")
 
