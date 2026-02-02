@@ -4,7 +4,7 @@ import os
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QHBoxLayout,
+    QVBoxLayout, QHBoxLayout, 
     QApplication, QWidget, QMainWindow,
     QPushButton, QLabel, QStackedWidget, QComboBox,
     QFrame, QSizePolicy
@@ -15,6 +15,12 @@ import config
 import path
 
 class MainWindow(QMainWindow):
+    def _raise(self):
+        self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
     def init_item(self):
         for value in range(0, 24):
             key = f'{value:02}:00'
@@ -378,40 +384,36 @@ class MainWindow(QMainWindow):
         img_card_layout.setContentsMargins(12, 12, 12, 12)
         img_card_layout.setSpacing(8)
         
-        img_title = QLabel("Recent status capture image")
-        img_title.setStyleSheet("color: rgba(234,240,255,0.80); font-weight: 800;")
-        img_card_layout.addWidget(img_title)
+        self.img_title = QLabel("Recent status capture image")
+        self.img_title.setStyleSheet("color: rgba(234,240,255,0.80); font-weight: 800;")
+        img_card_layout.addWidget(self.img_title)
         
         self.dashboard_img = QLabel()
         self.dashboard_img.setObjectName("ImageView")
-        self.dashboard_img.setMinimumHeight(220)
         self.dashboard_img.setAlignment(Qt.AlignCenter)
+        self.dashboard_img.setScaledContents(True)
+        self.dashboard_img.setMinimumHeight(220)
         self.dashboard_img.setStyleSheet("""
             QLabel#ImageView {
                 background: rgba(255,255,255,0.02);
                 border: 1px solid rgba(255,255,255,0.06);
             }
         """)
+        screen = QApplication.primaryScreen()
+        size = screen.size()
+        bw = max(200, size.width() // 3)
+        bh = max(200, size.height() // 3)
 
-        pix = QPixmap(path.RECENT_STATE)
-        if pix.isNull():
-            img_title.setText(img_title.text() + ' (-)')
-            self.dashboard_img.setText("Image not found\n" + path.RECENT_STATE)
-            self.dashboard_img.setStyleSheet(self.dashboard_img.styleSheet() + "color: rgba(234,240,255,0.55);")
-        else:
-            mtime = os.path.getmtime(path)
-            dt = datetime.datetime.fromtimestamp(mtime)
-            img_title.setText(img_title.text() + f' ({dt})')
-            self.dashboard_img.setPixmap(pix.scaled(
-                1000, 600, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            ))
-
+        self.dashboard_img.setFixedSize(bw, bh)
+        
         img_card_layout.addWidget(self.dashboard_img)
         outer.addWidget(img_card)
 
+        self.update_recent_capture()
+
         outer.addStretch()
         return w
-
+    
     def page_settings(self):
         w = QWidget()
         outer = QVBoxLayout(w)
@@ -462,14 +464,34 @@ class MainWindow(QMainWindow):
 
         return w
 
-    def _raise(self):
-        self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
-        self.show()
-        self.raise_()
-        self.activateWindow()
+    def update_recent_capture(self):
+        base_title = "Recent status capture image"
 
+        pix = QPixmap()
+        ok = pix.load(path.RECENT_STATE) 
+
+        if (not ok) or pix.isNull() or (not os.path.exists(path.RECENT_STATE)):
+            self.img_title.setText(f"{base_title} (-)")
+            self.dashboard_img.setText("Image not found\n" + path.RECENT_STATE)
+            self.dashboard_img.setStyleSheet(self.dashboard_img.styleSheet() + "color: rgba(234,240,255,0.55);")
+            self.dashboard_img.setPixmap(QPixmap()) 
+            return
+
+        mtime = os.path.getmtime(path.RECENT_STATE)
+        dt = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+        self.img_title.setText(f"{base_title} ({dt})")
+
+        self.dashboard_img.setStyleSheet("""
+            QLabel#ImageView {
+                background: rgba(255,255,255,0.02);
+                border: 1px solid rgba(255,255,255,0.06);
+            }
+        """)
+        self.dashboard_img.setPixmap(pix)
+    
     def function_btn_capture(self):
-        print('function_btn_capture')
+        program.capture()
+        self.update_recent_capture()
     def function_btn_maxi_node(self):
         program.maximize()
         self._raise()
@@ -480,7 +502,6 @@ class MainWindow(QMainWindow):
         program.restart()
         self._raise()
     def function_comboBox_select_item(self, index):
-        print(f'function_comboBox_select_item {index}')
         config.set_check_time(index)
 
 

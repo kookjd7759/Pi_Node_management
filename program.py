@@ -3,11 +3,9 @@ import win32process
 import win32api
 import win32gui
 import win32con
-import win32ui
-import ctypes
 import time
 
-from PIL import Image
+from PIL import ImageGrab
 
 import config
 import path
@@ -156,40 +154,19 @@ def init():
     minimize()
 
 def capture():
-    left, top, right, bottom = win32gui.GetWindowRect(_PROGRAM_HWND)
-    w, h = right - left, bottom - top
+    maximize()
 
-    hwnd_dc = win32gui.GetWindowDC(_PROGRAM_HWND)
-    src_dc = win32ui.CreateDCFromHandle(hwnd_dc)
-    mem_dc = src_dc.CreateCompatibleDC()
+    img = ImageGrab.grab(all_screens=False)
 
-    bmp = win32ui.CreateBitmap()
-    bmp.CreateCompatibleBitmap(src_dc, w, h)
-    mem_dc.SelectObject(bmp)
+    if path.RECENT_STATE:
+        img.save(path.RECENT_STATE)
 
-    ok = ctypes.windll.user32.PrintWindow(_PROGRAM_HWND, mem_dc.GetSafeHdc(), 2)
+    minimize()
 
-    info = bmp.GetInfo()
-    data = bmp.GetBitmapBits(True)
-    img = Image.frombuffer(
-        "RGB",
-        (info["bmWidth"], info["bmHeight"]),
-        data,
-        "raw",
-        "BGRX",
-        0,
-        1
-    )
-    img.save(path.RECENT_STATE)
-
-    mem_dc.DeleteDC()
-    src_dc.DeleteDC()
-    win32gui.ReleaseDC(_PROGRAM_HWND, hwnd_dc)
-    win32gui.DeleteObject(bmp.GetHandle())
-
-    return bool(ok)
+    return img
 
 
 if __name__ == '__main__':
     config.init()
     init()
+    capture()
