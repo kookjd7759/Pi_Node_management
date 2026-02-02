@@ -15,6 +15,10 @@ import config
 import path
 
 class MainWindow(QMainWindow):
+    def closeEvent(self, event):
+        program.terminate()
+        event.accept()
+
     def _raise(self):
         self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
         self.show()
@@ -305,10 +309,6 @@ class MainWindow(QMainWindow):
         self._raise()
         program.init()
 
-    def closeEvent(self, event):
-        program.terminate()
-        event.accept()
-
     def _set_header(self, t, h):
         self.header_title.setText(t)
         self.header_hint.setText(h)
@@ -472,9 +472,16 @@ class MainWindow(QMainWindow):
 
         if (not ok) or pix.isNull() or (not os.path.exists(path.RECENT_STATE)):
             self.img_title.setText(f"{base_title} (-)")
-            self.dashboard_img.setText("Image not found\n" + path.RECENT_STATE)
-            self.dashboard_img.setStyleSheet(self.dashboard_img.styleSheet() + "color: rgba(234,240,255,0.55);")
-            self.dashboard_img.setPixmap(QPixmap()) 
+            self.dashboard_img.clear()
+            self.dashboard_img.setText(f"Image not found\n{path.RECENT_STATE}")
+            self.dashboard_img.setAlignment(Qt.AlignCenter)
+            self.dashboard_img.setStyleSheet("""
+                QLabel#ImageView {
+                    background: rgba(255,255,255,0.02);
+                    border: 1px solid rgba(255,255,255,0.06);
+                    color: rgba(234,240,255,0.55);
+                }
+            """)
             return
 
         mtime = os.path.getmtime(path.RECENT_STATE)
