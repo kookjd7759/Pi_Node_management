@@ -2,7 +2,7 @@ import datetime
 import sys
 import os
 from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, 
     QApplication, QWidget, QMainWindow,
@@ -34,6 +34,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         config.init()
+        program.init()
+        self._raise()
 
         self.setWindowTitle('Pi Node Manager')
         self.setWindowIcon(QIcon(path.ICON))
@@ -265,21 +267,54 @@ class MainWindow(QMainWindow):
         content_layout.setContentsMargins(16, 16, 16, 16)
         content_layout.setSpacing(14)
 
-        # Header inside content
+                # Header inside content
         header = QWidget()
         header.setStyleSheet("background: transparent;")
-        header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(6, 2, 6, 2)
-        header_layout.setSpacing(2)
+
+        # ✅ header top row: title + clock (right)
+        header_top = QWidget()
+        header_top.setStyleSheet("background: transparent;")
+        header_top_layout = QHBoxLayout(header_top)
+        header_top_layout.setContentsMargins(6, 2, 6, 2)
+        header_top_layout.setSpacing(8)
 
         self.header_title = QLabel("Dashboard")
         self.header_title.setObjectName("PageTitle")
 
+        # ✅ realtime clock label
+        self.header_clock = QLabel("")
+        self.header_clock.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.header_clock.setStyleSheet("""
+            color: rgba(234,240,255,0.75);
+            font-weight: 800;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+        """)
+
+        header_top_layout.addWidget(self.header_title)
+        header_top_layout.addStretch(1)
+        header_top_layout.addWidget(self.header_clock)
+
+        # ✅ header bottom row: hint
+        header_bottom = QWidget()
+        header_bottom.setStyleSheet("background: transparent;")
+        header_bottom_layout = QVBoxLayout(header_bottom)
+        header_bottom_layout.setContentsMargins(6, 0, 6, 2)
+        header_bottom_layout.setSpacing(2)
+
         self.header_hint = QLabel("Quick actions for Managing")
         self.header_hint.setObjectName("PageHint")
+        header_bottom_layout.addWidget(self.header_hint)
 
-        header_layout.addWidget(self.header_title)
-        header_layout.addWidget(self.header_hint)
+        # ✅ pack header
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(2)
+        header_layout.addWidget(header_top)
+        header_layout.addWidget(header_bottom)
 
         # ---- pages
         self.pages = QStackedWidget()
@@ -306,9 +341,13 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(left)
         root_layout.addWidget(content_shell, 1)
 
+        # ✅ realtime clock (update every 500ms)
+        self._clock_timer = QTimer(self)
+        self._clock_timer.timeout.connect(self._update_clock)
+        self._clock_timer.start(500)
+        self._update_clock()
+
         self.setCentralWidget(root)
-        self._raise()
-        program.init()
 
     def _set_header(self, t, h):
         self.header_title.setText(t)
@@ -450,7 +489,7 @@ class MainWindow(QMainWindow):
         img_card_layout.addWidget(self.dashboard_img)
         outer.addWidget(img_card)
 
-        self.update_recent_capture()
+        self._update_recent_capture()
 
         outer.addStretch()
         return w
@@ -505,7 +544,10 @@ class MainWindow(QMainWindow):
 
         return w
 
-    def update_recent_capture(self):
+    def _update_clock(self):
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.header_clock.setText(f"🕒 {now}")
+    def _update_recent_capture(self):
         base_title = "Recent status capture image"
 
         pix = QPixmap()
@@ -539,7 +581,7 @@ class MainWindow(QMainWindow):
     
     def function_btn_capture(self):
         program.capture()
-        self.update_recent_capture()
+        self._update_recent_capture()
     def function_btn_maxi_node(self):
         program.maximize()
         self._raise()
@@ -552,7 +594,6 @@ class MainWindow(QMainWindow):
     def function_comboBox_select_item(self, index):
         config.set_check_time(index)
     def function_btn_check_status(self):
-        # TODO: 여기에 실제 상태 판별 로직 연결
         self.line_status.setText('🟡 Checking...')
         isOk = program.checking_status()
         if isOk:

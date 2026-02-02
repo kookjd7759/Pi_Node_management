@@ -48,6 +48,7 @@ def _wait_window_ready(timeout=60, stable_count=10):
     # 창 안정화 감시
     while time.time() - start < timeout:
         if not win32gui.IsWindow(_PROGRAM_HWND):
+            time.sleep(1)
             return False
 
         # hung 여부 체크 (WM_NULL 응답 확인)
@@ -75,13 +76,14 @@ def _wait_window_ready(timeout=60, stable_count=10):
             if rect == last_rect:
                 stable += 1
                 if stable >= stable_count:
+                    time.sleep(1)
                     return True
             else:
                 stable = 0
                 last_rect = rect
 
         time.sleep(0.05)
-
+    time.sleep(1)
     return False
 
 def _launch_program():
@@ -200,38 +202,85 @@ def _find_image(image: str, threshold: float = 0.8):
     _SM_CXVIRTUALSCREEN = 78
     _SM_CYVIRTUALSCREEN = 79
 
-    # 1) 전체 화면 캡쳐 (모든 모니터 포함)
-    img = ImageGrab.grab(all_screens=True).convert("RGB")
-    screen = np.array(img)
-    screen_gray = cv2.cvtColor(screen, cv2.COLOR_RGB2GRAY)
-
-    # 2) 템플릿 로드
-    templ = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
-    if templ is None:
+    # --- 0) 템플릿 로드(그레이)
+    templ0 = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
+    if templ0 is None:
         raise FileNotFoundError(image)
 
-    # 3) 템플릿 매칭
-    res = cv2.matchTemplate(screen_gray, templ, cv2.TM_CCOEFF_NORMED)
-    _, maxv, _, maxloc = cv2.minMaxLoc(res)
+    # --- 1) 캡처: 가능하면 Pi Desktop "창 영역(ROI)"만
+    offset_x = offset_y = 0
+    if _PROGRAM_HWND and win32gui.IsWindow(_PROGRAM_HWND) and win32gui.IsWindowVisible(_PROGRAM_HWND):
+        l, t, r, b = win32gui.GetWindowRect(_PROGRAM_HWND)
+        if (r - l) > 100 and (b - t) > 100:
+            img = ImageGrab.grab(bbox=(l, t, r, b)).convert("RGB")
+            offset_x, offset_y = l, t
+        else:
+            img = ImageGrab.grab(all_screens=True).convert("RGB")
+    else:
+        img = ImageGrab.grab(all_screens=True).convert("RGB")
 
-    h, w = templ.shape[:2]
+    screen = np.array(img)
+    screen0 = cv2.cvtColor(screen, cv2.COLOR_RGB2GRAY)
+
+    # --- 2) 전처리 2개를 만들어서 "더 높은 점수"를 채택 (일반적으로 이게 제일 안정적)
+    # A: 원본 + 약한 블러(노이즈만 살짝)
+    scrA = cv2.GaussianBlur(screen0, (3, 3), 0)
+    tmpA = cv2.GaussianBlur(templ0, (3, 3), 0)
+
+    # B: CLAHE(조명/대비 차이 대응) + 약한 블러
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    scrB = cv2.GaussianBlur(clahe.apply(screen0), (3, 3), 0)
+    tmpB = cv2.GaussianBlur(clahe.apply(templ0), (3, 3), 0)
+
+    # --- 3) 멀티스케일 매칭 (DPI/해상도 차이 대응의 핵심)
+    # 필요하면 범위를 조금 늘려도 됨.
+    scales = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25]
+
+    def run_match(screen_gray, templ_gray):
+        best = (-1.0, (0, 0), (templ_gray.shape[1], templ_gray.shape[0]), 1.0)  # score, loc, (w,h), scale
+        H, W = screen_gray.shape[:2]
+        th0, tw0 = templ_gray.shape[:2]
+
+        for s in scales:
+            tw = int(tw0 * s)
+            th = int(th0 * s)
+            if tw < 12 or th < 12:
+                continue
+            if tw > W or th > H:
+                continue
+
+            t_resized = cv2.resize(templ_gray, (tw, th), interpolation=cv2.INTER_AREA)
+            res = cv2.matchTemplate(screen_gray, t_resized, cv2.TM_CCOEFF_NORMED)
+            _, maxv, _, maxloc = cv2.minMaxLoc(res)
+
+            if maxv > best[0]:
+                best = (float(maxv), maxloc, (tw, th), s)
+
+        return best
+
+    # A, B 두 가지 전처리 중 최선 선택
+    scoreA, locA, whA, scA = run_match(scrA, tmpA)
+    scoreB, locB, whB, scB = run_match(scrB, tmpB)
+
+    if scoreB > scoreA:
+        maxv, maxloc, (w, h), used_scale = scoreB, locB, whB, scB
+        used = "CLAHE"
+    else:
+        maxv, maxloc, (w, h), used_scale = scoreA, locA, whA, scA
+        used = "RAW"
+
+    # --- 4) ROI 좌표 -> 실제 화면 좌표
     cx_img = maxloc[0] + w // 2
     cy_img = maxloc[1] + h // 2
 
-    # 4) "이미지 좌표" -> "실제 화면 좌표"로 스케일/오프셋 보정
-    vx = _USER32.GetSystemMetrics(_SM_XVIRTUALSCREEN)
-    vy = _USER32.GetSystemMetrics(_SM_YVIRTUALSCREEN)
-    vw = _USER32.GetSystemMetrics(_SM_CXVIRTUALSCREEN)
-    vh = _USER32.GetSystemMetrics(_SM_CYVIRTUALSCREEN)
-
-    img_w, img_h = img.size
-    cx = int(vx + cx_img * (vw / img_w))
-    cy = int(vy + cy_img * (vh / img_h))
+    cx = offset_x + cx_img
+    cy = offset_y + cy_img
 
     found = maxv >= threshold
 
-    print(f"found={found} score={maxv:.4f} x={cx} y={cy}")
+    print(f"Find Image - {image}\nfound={found} score={maxv:.4f} used={used} scale={used_scale:.2f} x={cx} y={cy}")
     return found, (cx, cy)
+
 
 def checking_status():
     restart()
