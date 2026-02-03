@@ -573,16 +573,18 @@ class MainWindow(QMainWindow):
 
         self._run_auto_capture(today)
 
-    def _run_auto_capture(self, today_str: str):
-        self.line_status.setText("🟡 Auto capture...")
+    def _run_auto_capture(self):
+        self.line_status.setText("🟡 capture...")
 
         try:
+            now = datetime.datetime.now()
+            today = now.strftime("%Y-%m-%d")
             program.capture_status()
             self._update_recent_capture()
-            self._last_auto_capture_date = today_str
-            self.line_status.setText("🟢 Auto capture done")
+            self._last_auto_capture_date = today
+            self.line_status.setText("🟢 capture done")
         except Exception as e:
-            self.line_status.setText(f"🔴 Auto capture failed: {e}")
+            self.line_status.setText(f"🔴 capture failed: {e}")
 
     def _update_clock(self):
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -620,7 +622,7 @@ class MainWindow(QMainWindow):
         self.dashboard_img.setPixmap(pix)
     
     def function_btn_capture(self):
-        program.capture()
+        self._run_auto_capture()
         self._update_recent_capture()
     def function_btn_maxi_node(self):
         program.maximize()
@@ -642,6 +644,7 @@ class MainWindow(QMainWindow):
             self.line_status.setText('🟢 Mining Online')
         else:
             self.line_status.setText('🔴 Mining Offline')
+        self._raise()
 
 
 
