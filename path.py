@@ -24,6 +24,7 @@ ICON = IMG_BASE + '\\icon.png'
 
 IMG_RECENT_STATE = IMG_BASE + '\\recent.png'
 IMG_MININGRATE_TXT = IMG_BASE + '\\data\\basic_mining_rate_txt.png'
+IMG_NODEBONUS_TXT = IMG_BASE + '\\data\\node_bonus_txt.png'
 IMG_LOGIN_BTN = IMG_BASE + '\\data\\login_btn.png'
 IMG_PIAPP_BTN = IMG_BASE + '\\data\\Pi_App_btn.png'
 IMG_STATUS_BTN = IMG_BASE + '\\data\\status_btn.png'
@@ -35,6 +36,7 @@ if __name__ == '__main__':
     print(f'CONFIG_PATH - {CONFIG_PATH}')
     print(f'IMG_RECENT_STATE - {IMG_RECENT_STATE}')
     print(f'IMG_MININGRATE_TXT - {IMG_MININGRATE_TXT}')
+    print(f'IMG_NODEBONUS_TXT - {IMG_NODEBONUS_TXT}')
     print(f'IMG_LOGIN_BTN - {IMG_LOGIN_BTN}')
     print(f'IMG_PIAPP_BTN - {IMG_PIAPP_BTN}')
     print(f'IMG_STATUS_BTN - {IMG_STATUS_BTN}')

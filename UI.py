@@ -346,6 +346,13 @@ class MainWindow(QMainWindow):
         self._clock_timer.timeout.connect(self._update_clock)
         self._clock_timer.start(500)
         self._update_clock()
+        
+        # ✅ schedule capture (check every 30s)
+        self._last_auto_capture_date = None
+        self._sched_timer = QTimer(self)
+        self._sched_timer.timeout.connect(self._schedule_tick)
+        self._sched_timer.start(30_000) 
+        self._schedule_tick()
 
         self.setCentralWidget(root)
 
@@ -544,6 +551,39 @@ class MainWindow(QMainWindow):
 
         return w
 
+    def _schedule_tick(self):
+        """
+        매 30초마다 실행:
+        - config.get_check_time() 값(0~23)과 현재 시(hour)이 같으면
+        - 오늘 날짜에 아직 자동 캡쳐를 안 했을 때 program.capture() 호출
+        """
+        try:
+            target_hour = int(config.get_check_time())  # 0~23
+        except Exception:
+            return
+
+        now = datetime.datetime.now()
+        today = now.strftime("%Y-%m-%d")
+
+        if self._last_auto_capture_date == today:
+            return
+
+        if now.hour != target_hour:
+            return
+
+        self._run_auto_capture(today)
+
+    def _run_auto_capture(self, today_str: str):
+        self.line_status.setText("🟡 Auto capture...")
+
+        try:
+            program.capture_status()
+            self._update_recent_capture()
+            self._last_auto_capture_date = today_str
+            self.line_status.setText("🟢 Auto capture done")
+        except Exception as e:
+            self.line_status.setText(f"🔴 Auto capture failed: {e}")
+
     def _update_clock(self):
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.header_clock.setText(f"🕒 {now}")
@@ -593,6 +633,8 @@ class MainWindow(QMainWindow):
         self._raise()
     def function_comboBox_select_item(self, index):
         config.set_check_time(index)
+        self._last_auto_capture_date = None
+        self._schedule_tick()
     def function_btn_check_status(self):
         self.line_status.setText('🟡 Checking...')
         isOk = program.checking_status()

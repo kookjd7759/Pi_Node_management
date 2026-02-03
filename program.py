@@ -3,6 +3,7 @@ import win32process
 import win32api
 import win32gui
 import win32con
+import pyautogui
 import ctypes
 import time
 import cv2
@@ -176,7 +177,7 @@ def init():
     excute()
     minimize()
 
-def capture():
+def _capture():
     maximize()
 
     img = ImageGrab.grab(all_screens=False)
@@ -188,13 +189,14 @@ def capture():
 
     return img
 
-def _move_mouse(x, y):
+def _mouse_move(x, y):
     _USER32.SetCursorPos(x, y)
-
-def _click_mouse():
+def _mouse_click():
     _USER32.mouse_event(0x0002, 0, 0, 0, 0)
     time.sleep(0.1)
     _USER32.mouse_event(0x0004, 0, 0, 0, 0)
+def _mouse_scrollDown():
+    pyautogui.scroll(-500)
 
 def _find_image(image: str, threshold: float = 0.8):
     _SM_XVIRTUALSCREEN = 76
@@ -281,8 +283,7 @@ def _find_image(image: str, threshold: float = 0.8):
     print(f"Find Image - {image}\nfound={found} score={maxv:.4f} used={used} scale={used_scale:.2f} x={cx} y={cy}")
     return found, (cx, cy)
 
-
-def checking_status():
+def _go_to_status_page():
     restart()
     maximize()
 
@@ -290,18 +291,40 @@ def checking_status():
     while time.time() - start < 120: # (120s)
         status_btn, (x, y) = _find_image(path.IMG_STATUS_BTN)
         if status_btn:
-            _move_mouse(x, y)
-            _click_mouse()
+            _mouse_move(x, y)
+            _mouse_click()
         
         time.sleep(1)
 
         isSuccess, (x, y) = _find_image(path.IMG_MININGRATE_TXT)
         if isSuccess:
-            minimize()
+            _mouse_move(x, y)
             return True
     
-    minimize()
     return False
+
+def checking_status():
+    isStatusPage = _go_to_status_page()
+    if not isStatusPage:
+        return False
+    
+    return True
+
+def capture_status():
+    isStatusPage = _go_to_status_page()
+    if not isStatusPage:
+        return False
+    
+    start = time.time()
+    while time.time() - start < 60:
+        _mouse_scrollDown()
+        time.sleep(1)
+        ok, (x, y) = _find_image(path.IMG_NODEBONUS_TXT)
+        if ok:
+            _capture()
+            return True
+    return False
+    
 
 
 
@@ -309,4 +332,4 @@ if __name__ == '__main__':
     config.init()
     init()
     time.sleep(0.5)
-    checking_status()
+    capture_status()
