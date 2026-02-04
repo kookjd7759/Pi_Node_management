@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 
 from PIL import ImageGrab
+from datetime import datetime
 
 import config
 import path
@@ -177,18 +178,6 @@ def init():
     excute()
     minimize()
 
-def _capture():
-    maximize()
-
-    img = ImageGrab.grab(all_screens=False)
-
-    if path.IMG_RECENT_STATE:
-        img.save(path.IMG_RECENT_STATE)
-
-    minimize()
-
-    return img
-
 def _mouse_move(x, y):
     _USER32.SetCursorPos(x, y)
 def _mouse_click():
@@ -197,6 +186,21 @@ def _mouse_click():
     _USER32.mouse_event(0x0004, 0, 0, 0, 0)
 def _mouse_scrollDown():
     pyautogui.scroll(-500)
+
+def _capture():
+    maximize()
+
+    img = ImageGrab.grab(all_screens=False)
+
+    if path.IMG_RECENT_STATE:
+        today = datetime.now().strftime("%Y-%m-%d (%H:%M:%S)")
+        save_path = path.RECORD_BASE + f'\\{today}.png'
+        img.save(save_path)
+        img.save(path.IMG_RECENT_STATE)
+
+    minimize()
+
+    return img
 
 def _find_image(image: str, threshold: float = 0.8):
     _SM_XVIRTUALSCREEN = 76
@@ -289,6 +293,10 @@ def _go_to_status_page():
 
     start = time.time()
     while time.time() - start < 120: # (120s)
+        notWorking, (x, y) = _find_image(path.IMG_STARTMINING_TXT)
+        if notWorking:
+            return False
+        
         status_btn, (x, y) = _find_image(path.IMG_STATUS_BTN)
         if status_btn:
             _mouse_move(x, y)
@@ -300,12 +308,14 @@ def _go_to_status_page():
         if isSuccess:
             _mouse_move(x, y)
             return True
+        
     
     return False
 
 def checking_status():
     isStatusPage = _go_to_status_page()
     if not isStatusPage:
+        minimize()
         return False
     
     return True
@@ -313,6 +323,7 @@ def checking_status():
 def capture_status():
     isStatusPage = _go_to_status_page()
     if not isStatusPage:
+        _capture()
         return False
     
     start = time.time()
@@ -323,8 +334,9 @@ def capture_status():
         if ok:
             _capture()
             return True
+    _capture()
     return False
-    
+
 
 
 

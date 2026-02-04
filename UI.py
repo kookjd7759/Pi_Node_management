@@ -1,6 +1,6 @@
-import datetime
 import sys
 import os
+from datetime import datetime
 from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
@@ -562,7 +562,7 @@ class MainWindow(QMainWindow):
         except Exception:
             return
 
-        now = datetime.datetime.now()
+        now = datetime.now()
         today = now.strftime("%Y-%m-%d")
 
         if self._last_auto_capture_date == today:
@@ -571,13 +571,13 @@ class MainWindow(QMainWindow):
         if now.hour != target_hour:
             return
 
-        self._run_auto_capture(today)
+        self._run_auto_capture()
 
     def _run_auto_capture(self):
         self.line_status.setText("🟡 capture...")
 
         try:
-            now = datetime.datetime.now()
+            now = datetime.now()
             today = now.strftime("%Y-%m-%d")
             program.capture_status()
             self._update_recent_capture()
@@ -587,7 +587,7 @@ class MainWindow(QMainWindow):
             self.line_status.setText(f"🔴 capture failed: {e}")
 
     def _update_clock(self):
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.header_clock.setText(f"🕒 {now}")
     def _update_recent_capture(self):
         base_title = "Recent status capture image"
@@ -610,7 +610,7 @@ class MainWindow(QMainWindow):
             return
 
         mtime = os.path.getmtime(path.IMG_RECENT_STATE)
-        dt = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+        dt = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
         self.img_title.setText(f"{base_title} ({dt})")
 
         self.dashboard_img.setStyleSheet("""
