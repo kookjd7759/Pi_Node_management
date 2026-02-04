@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, 
     QApplication, QWidget, QMainWindow,
     QPushButton, QLabel, QStackedWidget, QComboBox,
-    QFrame, QSizePolicy, QLineEdit
+    QFrame, QSizePolicy, QLineEdit, QTextEdit
 )
 
 import program
@@ -250,10 +250,17 @@ class MainWindow(QMainWindow):
         btn_setting.setAutoExclusive(True)
         btn_dashboard.setChecked(True)
 
+        btn_dev = QPushButton("  💻🛠️  Developer")
+        btn_dev.setObjectName("NavButton")
+
+        btn_dev.setCheckable(True)
+        btn_dev.setAutoExclusive(True)
+
         left_layout.addWidget(brand)
         left_layout.addSpacing(6)
         left_layout.addWidget(btn_dashboard)
         left_layout.addWidget(btn_setting)
+        left_layout.addWidget(btn_dev)
         left_layout.addStretch()
 
         footer = QLabel("v0.5.4 target • Pi Node Manager")
@@ -321,6 +328,7 @@ class MainWindow(QMainWindow):
         self.pages.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.pages.addWidget(self.page_main())
         self.pages.addWidget(self.page_settings())
+        self.pages.addWidget(self.page_dev())
 
         content_layout.addWidget(header)
         content_layout.addWidget(self.pages, 1)
@@ -328,6 +336,10 @@ class MainWindow(QMainWindow):
         # ---- signals (keep existing behavior)
         btn_dashboard.clicked.connect(lambda: self.pages.setCurrentIndex(0))
         btn_setting.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        btn_dev.clicked.connect(lambda: self.pages.setCurrentIndex(2))
+        btn_dev.clicked.connect(lambda: btn_dev.setChecked(True))
+        btn_dev.clicked.connect(lambda: self._set_header("Developer", "Diagnostics / paths / runtime status."))
+
 
         # ✅ ensure checked highlight follows navigation
         btn_dashboard.clicked.connect(lambda: btn_dashboard.setChecked(True))
@@ -550,6 +562,52 @@ class MainWindow(QMainWindow):
         outer.addStretch()
 
         return w
+    
+    def page_dev(self):
+        w = QWidget()
+        outer = QVBoxLayout(w)
+        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(14)
+
+        card = QFrame()
+        card.setObjectName("Card")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 16, 16, 16)
+        card_layout.setSpacing(12)
+
+        title = QLabel("💻🛠️ Developer Console")
+        title.setStyleSheet("font-weight: 900; font-size: 15px;")
+        card_layout.addWidget(title)
+
+        # ✅ Run diagnostics button
+        self.btn_diag = QPushButton("🧪 Run Diagnostics")
+        self.btn_diag.setObjectName("ActionPrimary")
+        self.btn_diag.setMinimumHeight(54)
+        self.btn_diag.clicked.connect(self.function_btn_diagnostics)
+        card_layout.addWidget(self.btn_diag)
+
+        # ✅ Big log area
+        self.dev_log = QTextEdit()
+        self.dev_log.setReadOnly(True)
+        self.dev_log.setLineWrapMode(QTextEdit.NoWrap)
+        self.dev_log.setStyleSheet("""
+            QLineEdit {
+                padding: 14px 14px;
+                border-radius: 16px;
+                border: 1px solid rgba(255,255,255,0.10);
+                background: rgba(255,255,255,0.02);
+                color: rgba(234,240,255,0.92);
+                font-weight: 700;
+                font-size: 13px;
+            }
+        """)
+        self.dev_log.setFixedHeight(220)
+        self.dev_log.setText("Ready. Click 'Run Diagnostics' to check paths and runtime state.")
+        card_layout.addWidget(self.dev_log)
+
+        outer.addWidget(card)
+        outer.addStretch()
+        return w
 
     def _schedule_tick(self):
         """
@@ -645,6 +703,39 @@ class MainWindow(QMainWindow):
         else:
             self.line_status.setText('🔴 Mining Offline')
         self._raise()
+    def function_btn_diagnostics(self):
+        try:
+            parts = []
+            parts.append("🧭 Diagnostics")
+            parts.append(f"📌 CWD: {os.getcwd()}")
+
+            # path 모듈에 자주 있는 값들(없을 수도 있으니 getattr로 안전하게)
+            parts.append(f"🗂️ ICON: {getattr(path, 'ICON', '(none)')}")
+            parts.append(f"🖼️ IMG_RECENT_STATE: {getattr(path, 'IMG_RECENT_STATE', '(none)')}")
+            parts.append(f"📁 RECORD_BASE: {getattr(path, 'RECORD_BASE', '(none)')}")
+
+            # 파일 존재 체크
+            img_recent = getattr(path, 'IMG_RECENT_STATE', None)
+            if img_recent:
+                parts.append(f"✅ recent image exists: {os.path.exists(img_recent)}")
+
+            # program 상태(있으면 좋고, 없으면 표시만)
+            # 예: program.py에 _PROGRAM_HWND 같은 전역이 있을 수 있음
+            hwnd = getattr(program, '_PROGRAM_HWND', None)
+            parts.append(f"🪟 PiDesktop HWND: {hwnd}")
+
+            # config 상태
+            try:
+                parts.append(f"⏰ check_time: {config.get_check_time()}")
+            except:
+                parts.append("⏰ check_time: (error)")
+
+            msg = "\n".join(parts)
+            self.dev_log.setText(msg)
+
+
+        except Exception as e:
+            self.dev_log.setText(f"❌ Diagnostics failed: {e}")
 
 
 

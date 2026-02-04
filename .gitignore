@@ -2,3 +2,6 @@ __pycache__/
 config.json
 image/recent.png
 image/record/*.png
+build/
+dist/
+UI.spec
