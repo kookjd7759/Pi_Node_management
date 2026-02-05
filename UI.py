@@ -64,9 +64,9 @@ class MainWindow(QMainWindow):
             border: 1px solid rgba(255,255,255,0.06);
             border-radius: 18px;
         }
-
+W
         QLabel#BrandTitle {
-            font-size: 18px;
+            font-size: 18px;W
             font-weight: 800;
             letter-spacing: 0.5px;
         }
