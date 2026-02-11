@@ -250,7 +250,7 @@ W
         btn_setting.setAutoExclusive(True)
         btn_dashboard.setChecked(True)
 
-        btn_dev = QPushButton("  💻🛠️  Developer")
+        btn_dev = QPushButton("  💻  Developer")
         btn_dev.setObjectName("NavButton")
 
         btn_dev.setCheckable(True)
@@ -610,15 +610,7 @@ W
         return w
 
     def _schedule_tick(self):
-        """
-        매 30초마다 실행:
-        - config.get_check_time() 값(0~23)과 현재 시(hour)이 같으면
-        - 오늘 날짜에 아직 자동 캡쳐를 안 했을 때 program.capture() 호출
-        """
-        try:
-            target_hour = int(config.get_check_time())  # 0~23
-        except Exception:
-            return
+        target_hour = int(config.get_check_time())
 
         now = datetime.now()
         today = now.strftime("%Y-%m-%d")

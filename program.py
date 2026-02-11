@@ -193,7 +193,7 @@ def _capture():
     img = ImageGrab.grab(all_screens=False)
 
     if path.IMG_RECENT_STATE:
-        today = datetime.now().strftime("%Y-%m-%d (%H:%M:%S)")
+        today = datetime.now().strftime("%Y-%m-%d (%Hh %Mm %Ss)")
         save_path = path.RECORD_BASE + f'\\{today}.png'
         img.save(save_path)
         img.save(path.IMG_RECENT_STATE)
@@ -203,28 +203,13 @@ def _capture():
     return img
 
 def _find_image(image: str, threshold: float = 0.8):
-    _SM_XVIRTUALSCREEN = 76
-    _SM_YVIRTUALSCREEN = 77
-    _SM_CXVIRTUALSCREEN = 78
-    _SM_CYVIRTUALSCREEN = 79
-
     # --- 0) 템플릿 로드(그레이)
     templ0 = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
     if templ0 is None:
         raise FileNotFoundError(image)
 
     # --- 1) 캡처: 가능하면 Pi Desktop "창 영역(ROI)"만
-    offset_x = offset_y = 0
-    if _PROGRAM_HWND and win32gui.IsWindow(_PROGRAM_HWND) and win32gui.IsWindowVisible(_PROGRAM_HWND):
-        l, t, r, b = win32gui.GetWindowRect(_PROGRAM_HWND)
-        if (r - l) > 100 and (b - t) > 100:
-            img = ImageGrab.grab(bbox=(l, t, r, b)).convert("RGB")
-            offset_x, offset_y = l, t
-        else:
-            img = ImageGrab.grab(all_screens=True).convert("RGB")
-    else:
-        img = ImageGrab.grab(all_screens=True).convert("RGB")
-
+    img = ImageGrab.grab(all_screens=True).convert("RGB")
     screen = np.array(img)
     screen0 = cv2.cvtColor(screen, cv2.COLOR_RGB2GRAY)
 
@@ -279,8 +264,8 @@ def _find_image(image: str, threshold: float = 0.8):
     cx_img = maxloc[0] + w // 2
     cy_img = maxloc[1] + h // 2
 
-    cx = offset_x + cx_img
-    cy = offset_y + cy_img
+    cx = cx_img
+    cy = cy_img
 
     found = maxv >= threshold
 
@@ -314,11 +299,8 @@ def _go_to_status_page():
 
 def checking_status():
     isStatusPage = _go_to_status_page()
-    if not isStatusPage:
-        minimize()
-        return False
-    
-    return True
+    minimize()
+    return isStatusPage
 
 def capture_status():
     isStatusPage = _go_to_status_page()
@@ -344,4 +326,4 @@ if __name__ == '__main__':
     config.init()
     init()
     time.sleep(0.5)
-    capture_status()
+    _capture()
