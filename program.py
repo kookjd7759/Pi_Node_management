@@ -321,7 +321,6 @@ def capture_status():
 
 
 
-
 if __name__ == '__main__':
     config.init()
     init()
