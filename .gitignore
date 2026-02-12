@@ -4,3 +4,6 @@ image/recent.png
 image/record/*.png
 build/
 UI.spec
+
+installer/build/
+installer/main.spec
