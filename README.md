@@ -1,5 +1,6 @@
 ## Pi Manager  
-**Pi Manager**는 Windows 환경에서 (Pi Desktop(0.5.4v))[https://minepi.com/pi-node/]을 자동 제어하고 채굴 상태를 점검·캡처하는 데스크톱 매니저 프로그램입니다.  
+**Pi Manager**는 Windows 환경에서 [Pi Desktop/Node 프로그램](https://minepi.com/pi-node/)을 자동 제어하고 채굴 상태를 점검·캡처하는 데스크톱 매니저 프로그램입니다.  
+- Pi Desktop/Node Program version: 0.5.4v
 
 #### Download  
 Pi manager installer program  
