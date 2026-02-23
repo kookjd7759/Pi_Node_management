@@ -11,7 +11,7 @@ Pi manager installer program
 Win32 API 기반으로 Pi Desktop 창을 안정적으로 제어합니다.  
 
 2. Image-Based Status Detection  
-OpenCV 템플릿 매칭 기반 상태 인식  
+OpenCV 템플릿 매칭 기반 상태 인식 및 채굴 현황 기록  
 
 3. Auto Capture System  
 지정 시간에 채굴 상태 점검을 수행  
